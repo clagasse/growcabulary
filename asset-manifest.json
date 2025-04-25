@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/growcabulary/static/css/main.3fb15936.css",
+    "main.js": "/growcabulary/static/js/main.76444e54.js",
+    "static/js/453.a9114a2b.chunk.js": "/growcabulary/static/js/453.a9114a2b.chunk.js",
+    "index.html": "/growcabulary/index.html",
+    "main.3fb15936.css.map": "/growcabulary/static/css/main.3fb15936.css.map",
+    "main.76444e54.js.map": "/growcabulary/static/js/main.76444e54.js.map",
+    "453.a9114a2b.chunk.js.map": "/growcabulary/static/js/453.a9114a2b.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.3fb15936.css",
+    "static/js/main.76444e54.js"
+  ]
+}
