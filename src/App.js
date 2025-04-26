@@ -109,48 +109,54 @@ const [averageScore, setAverageScore] = useState(0);
     }
   }, [wordsCompleted, seedBank, totalScore, highestScore, averageScore, remaining]);
 
-  // Timer effect
-  useEffect(() => {
-    if (!words.length || !remaining[current]) return;
-    
-    // Reset everything for new word
-    setWrongGuesses(0);
-    setInput("");
-    setMessage("");
-    setScore(50);
-    setTimer(0);
-    setRevealedCount(0);
-    setPenalties(0);
-    
-    if (inputRef.current) inputRef.current.focus();
-    
-    // Create single timer
-    const startTime = Date.now();
-    const id = setInterval(() => {
-      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-      
-      if (elapsedSeconds >= 50) {
-        clearInterval(id);
-        setTimer(50);
-        setMessage("Time's up! The word was: " + remaining[current].word);
-        return;
-      }
-      
-      setTimer(elapsedSeconds);
-      
-      // Handle letter reveal every 5 seconds
-      if (elapsedSeconds > 0 && elapsedSeconds % 5 === 0) {
-        setRevealedCount(prev => {
-          const word = remaining[current].word;
-          return Math.min(prev + 1, word.length);
-        });
-      }
-    }, 1000);
-    
-    setIntervalId(id);
-    
-    return () => clearInterval(id);
-  }, [current, remaining, words.length]);
+  // Update your useEffect for the timer
+useEffect(() => {
+  if (!Array.isArray(remaining) || !remaining[current]) return;
+
+  // Clear any existing interval
+  if (intervalId) {
+    clearInterval(intervalId);
+  }
+
+  setWrongGuesses(0);
+  setInput("");
+  setMessage("");
+  setScore(50);
+  setTimer(0);
+  setRevealedCount(0);
+  setPenalties(0);
+
+  if (inputRef.current) inputRef.current.focus();
+
+  // Start a new interval
+  const startTime = Date.now();
+  const id = setInterval(() => {
+    const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+
+    if (elapsedSeconds >= 50) {
+      clearInterval(id);
+      setTimer(50);
+      setMessage("Time's up! The word was: " + (remaining[current]?.word || ""));
+      return;
+    }
+
+    setTimer(elapsedSeconds);
+
+    if (elapsedSeconds > 0 && elapsedSeconds % 5 === 0) {
+      setRevealedCount(prev => {
+        const word = remaining[current]?.word || "";
+        return Math.min(prev + 1, word.length);
+      });
+    }
+  }, 1000);
+
+  setIntervalId(id);
+
+  // Cleanup
+  return () => {
+    if (id) clearInterval(id);
+  };
+}, [current, remaining]); // Add intervalId to dependencies if needed
 
   // Score effect
   useEffect(() => {
