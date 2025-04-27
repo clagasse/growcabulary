@@ -2,6 +2,28 @@ import React, { useState, useEffect, useRef } from 'react';
 import Papa from 'papaparse';
 import './App.css';
 
+// --- Botanical Emoji Map by Origin ---
+const originEmojiMap = {
+  Latin: '🌿',
+  Greek: '🌺',
+  French: '🌻',
+  'Old English': '🌳',
+  German: '🌲',
+  Italian: '🌷',
+  Arabic: '🌵',
+  Other: '🍄',
+  unknown: '🍄'
+};
+function getOriginEmoji(origin) {
+  return originEmojiMap[origin] || '🍄';
+}
+
+// --- Word Bank Types ---
+const WORD_BANKS = [
+  { type: 'rare', label: 'Rare', csv: '/growcabulary_words_rare.csv' },
+  { type: 'common', label: 'Common', csv: '/growcabulary_words_common.csv' }, // Placeholder for future
+];
+
 // Helper functions for input bar
 function getNextEmptyIndex(guessArr, revealedCount) {
   for (let i = revealedCount; i < guessArr.length; i++) {
@@ -17,8 +39,8 @@ function getLastFilledIndex(guessArr, revealedCount) {
 }
 
 // Save/load helpers
-function saveGameState(state) {
-  localStorage.setItem('growcabulary_state', JSON.stringify({
+function saveGameState(state, wordBankType) {
+  localStorage.setItem(`growcabulary_state_${wordBankType}`, JSON.stringify({
     seedBank: state.seedBank || [],
     totalScore: state.totalScore || 0,
     highestScore: state.highestScore || 0,
@@ -29,9 +51,9 @@ function saveGameState(state) {
   }));
 }
 
-function loadGameState() {
+function loadGameState(wordBankType) {
   try {
-    const savedState = localStorage.getItem('growcabulary_state');
+    const savedState = localStorage.getItem(`growcabulary_state_${wordBankType}`);
     if (savedState) {
       const parsed = JSON.parse(savedState);
       return {
@@ -44,7 +66,7 @@ function loadGameState() {
       };
     }
   } catch (e) {
-    localStorage.removeItem('growcabulary_state');
+    localStorage.removeItem(`growcabulary_state_${wordBankType}`);
   }
   return null;
 }
@@ -57,7 +79,7 @@ function getRandomIndex(arr) {
 function maskWordInExample(example, word) {
   if (!example || !word) return "";
   const regex = new RegExp(word, "gi");
-  return example.replace(regex, "_____");
+  return example.replace(regex, "____");
 }
 
 function downloadCSV(garden, setDownloadUrl) {
@@ -87,10 +109,14 @@ function downloadCSV(garden, setDownloadUrl) {
 
   setTimeout(() => {
     URL.revokeObjectURL(url);
-  }, 100);
+  }, 60);
 }
 
 export default function App() {
+  // --- Word Bank State ---
+  const [wordBankType, setWordBankType] = useState('rare');
+  const [showBankDropdown, setShowBankDropdown] = useState(false);
+
   // Welcome modal state
   const [showWelcome, setShowWelcome] = useState(() => {
     return !localStorage.getItem('growcabulary_welcome_dismissed');
@@ -99,7 +125,7 @@ export default function App() {
   const [words, setWords] = useState([]);
   const [remaining, setRemaining] = useState([]);
   const [current, setCurrent] = useState(0);
-  const [score, setScore] = useState(100);
+  const [score, setScore] = useState(60);
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [message, setMessage] = useState("");
   const [timer, setTimer] = useState(0);
@@ -123,7 +149,8 @@ export default function App() {
   // CSV loading and robust state validation
   useEffect(() => {
     setIsLoading(true);
-    fetch(process.env.PUBLIC_URL + '/growcabulary_words_enhanced.csv')
+    const selectedBank = WORD_BANKS.find(b => b.type === wordBankType) || WORD_BANKS[0];
+    fetch(process.env.PUBLIC_URL + selectedBank.csv)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.text();
@@ -136,7 +163,7 @@ export default function App() {
             if (results.data && results.data.length > 0) {
               let savedState = null;
               try {
-                savedState = loadGameState();
+                savedState = loadGameState(wordBankType);
               } catch (e) {
                 savedState = null;
               }
@@ -159,7 +186,12 @@ export default function App() {
                 setWords(results.data);
                 setRemaining([...results.data]);
                 setCurrent(getRandomIndex(results.data));
-                localStorage.removeItem('growcabulary_state');
+                localStorage.removeItem(`growcabulary_state_${wordBankType}`);
+                setGarden([]);
+                setTotalScore(0);
+                setHighestScore(0);
+                setWordsCompleted(0);
+                setAverageScore(0);
               }
               setIsLoading(false);
             } else {
@@ -177,7 +209,7 @@ export default function App() {
         setError("CSV fetch error: " + error.message);
         setIsLoading(false);
       });
-  }, []);
+  }, [wordBankType]);
 
   useEffect(() => {
     if (wordsCompleted > 0) {
@@ -188,9 +220,9 @@ export default function App() {
         wordsCompleted,
         averageScore,
         remaining
-      });
+      }, wordBankType);
     }
-  }, [wordsCompleted, garden, totalScore, highestScore, averageScore, remaining]);
+  }, [wordsCompleted, garden, totalScore, highestScore, averageScore, remaining, wordBankType]);
 
   // When a new word is loaded, reset all round state
   useEffect(() => {
@@ -202,7 +234,7 @@ export default function App() {
 
     setWrongGuesses(0);
     setMessage("");
-    setScore(100);
+    setScore(60);
     setTimer(0);
     setPenalties(0);
     setIsRoundOver(false);
@@ -218,12 +250,12 @@ export default function App() {
     if (!showWelcome) {
       const id = setInterval(() => {
         setTimer(prev => {
-          if (prev + 1 >= 100) {
+          if (prev + 1 >= 60) {
             clearInterval(id);
             setMessage("Time's up! The word was: " + (remaining[current]?.word || "") + ". Press Enter for next word");
             setScore(0);
             setIsRoundOver(true);
-            return 100;
+            return 60;
           }
           return prev + 1;
         });
@@ -239,8 +271,8 @@ export default function App() {
 
   // Score calculation and auto-reveal at 0
   useEffect(() => {
-    if (timer >= 100 || isRoundOver) return;
-    const newScore = Math.max(0, 100 - timer - penalties);
+    if (timer >= 60 || isRoundOver) return;
+    const newScore = Math.max(0, 60 - timer - penalties);
     setScore(newScore);
     if (newScore <= 0) {
       const currentWord = remaining[current]?.word || "";
@@ -276,7 +308,7 @@ export default function App() {
       setPenalties(newPenalties);
       setMessage("Try again! -10 points");
       setWrongGuesses(g => g + 1);
-      if (100 - timer - newPenalties <= 0) {
+      if (60 - timer - newPenalties <= 0) {
         setScore(0);
         setMessage("Time's up! The word was: " + word + ". Press Enter for next word");
         setIsRoundOver(true);
@@ -315,14 +347,45 @@ export default function App() {
 
   function resetGame() {
     if (window.confirm('Are you sure you want to reset your progress? This cannot be undone.')) {
-      localStorage.removeItem('growcabulary_state');
+      localStorage.removeItem(`growcabulary_state_${wordBankType}`);
       window.location.reload();
     }
   }
 
   function forceReset() {
-    localStorage.removeItem('growcabulary_state');
+    localStorage.removeItem(`growcabulary_state_${wordBankType}`);
     window.location.reload();
+  }
+
+  // --- Word Bank Selector Handler ---
+  function handleWordBankChange(bank) {
+    // Load the saved state for the selected word bank
+    const savedState = loadGameState(bank.type);
+
+    // Update all the state values with the saved data or reset them
+    setGarden(savedState?.seedBank || []);
+    setTotalScore(savedState?.totalScore || 0);
+    setHighestScore(savedState?.highestScore || 0);
+    setWordsCompleted(savedState?.wordsCompleted || 0);
+    setAverageScore(savedState?.averageScore || 0);
+
+    // Set the new word bank type
+    setWordBankType(bank.type);
+    setShowBankDropdown(false);
+
+    // Reset the current game state
+    setWrongGuesses(0);
+    setMessage("");
+    setScore(60);
+    setTimer(0);
+    setPenalties(0);
+    setIsRoundOver(false);
+
+    // Clear any existing timer
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
+    }
   }
 
   if (error) {
@@ -389,13 +452,13 @@ export default function App() {
             </h2>
             <div className="space-y-4 text-green-900">
               <p className="leading-relaxed">
-                Grow your vocabulary garden by learning advanced English words! Each word is a seed waiting to bloom through your knowledge.
+                Cultivate your lexicon by learning and practicing complex English words. Try to guess the word using its definition, origin, and other hints.
               </p>
-              
+
               <div className="bg-green-50 p-4 rounded-lg">
                 <h3 className="font-bold text-green-800 mb-2">How to Play:</h3>
                 <ul className="list-disc pl-5 space-y-2 text-green-800">
-                  <li>Each round starts with <span className="font-semibold">100 points</span></li>
+                  <li>Each round starts with <span className="font-semibold">50 points</span></li>
                   <li>Points decrease as time passes (1 point per second)</li>
                   <li>Wrong guesses cost 10 points each</li>
                   <li>A letter is revealed every 5 seconds as a hint</li>
@@ -403,21 +466,11 @@ export default function App() {
               </div>
 
               <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-bold text-green-800 mb-2">Hints System:</h3>
-                <ul className="list-disc pl-5 space-y-2 text-green-800">
-                  <li>Start with the word's definition</li>
-                  <li>First wrong guess reveals an example sentence</li>
-                  <li>Second wrong guess shows the etymology</li>
-                  <li>Letters are gradually revealed to help you</li>
-                </ul>
-              </div>
-
-              <div className="bg-green-50 p-4 rounded-lg">
                 <h3 className="font-bold text-green-800 mb-2">Track Your Progress:</h3>
                 <ul className="list-disc pl-5 space-y-2 text-green-800">
                   <li>Successfully guessed words go to your <span className="font-semibold">Garden</span></li>
-                  <li>Track your total score and highest word score</li>
-                  <li>Download your learned words anytime</li>
+                  <li>Your score and Garden will be saved in your browser.</li>
+                  <li>You can download your Garden anytime as a CSV file.</li>
                 </ul>
               </div>
             </div>
@@ -455,8 +508,32 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center space-x-4">
+            {/* Seed Bank Selector */}
+            <div className="relative">
+              <button
+                className="bg-green-200 text-green-900 px-2 py-1 rounded hover:bg-green-300 font-semibold"
+                onClick={() => setShowBankDropdown(v => !v)}
+                title="Change word bank"
+              >
+                Seed Bank: {WORD_BANKS.find(b => b.type === wordBankType)?.label}
+                <span className="ml-1">▼</span>
+              </button>
+              {showBankDropdown && (
+                <div className="absolute right-0 mt-1 bg-white border rounded shadow z-20">
+                  {WORD_BANKS.map(bank => (
+                    <button
+                      key={bank.type}
+                      className={`block w-full text-left px-4 py-2 hover:bg-green-100 ${wordBankType === bank.type ? 'font-bold text-green-700' : ''}`}
+                      onClick={() => handleWordBankChange(bank)}
+                    >
+                      {bank.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="text-xs text-green-600 italic">
-              🎯 Score as many points as you can!
+              🎯
             </div>
             <button
               onClick={resetGame}
@@ -479,7 +556,7 @@ export default function App() {
       <div className="flex-1 flex flex-col items-center justify-center py-8">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full border-2 border-green-200">
           <h1 className="text-3xl font-bold text-green-700 mb-4 flex items-center">
-            <span role="img" aria-label="plant" className="mr-2">🌿</span> Growcabulary
+            <span role="img" aria-label="plant" className="mr-2">🌿</span> Growcabulary 🌿
           </h1>
           {currentWord && (
             <>
@@ -487,17 +564,17 @@ export default function App() {
                 <span className="font-semibold text-green-800">Form:</span>
                 <span className="ml-2 text-green-900">{currentWord.form}</span>
               </div>
-              
+
               <div className="mb-2">
                 <span className="font-semibold text-green-800">Origin:</span>
-                <span className="ml-2 text-green-900">{currentWord.origin}</span>
+                <span className="ml-2 text-green-900">{currentWord.origin} {getOriginEmoji(currentWord.origin)}</span>
               </div>
 
               <div className="mb-4">
                 <span className="font-semibold text-green-800">Definition:</span>
                 <div className="italic">{currentWord.definition}</div>
               </div>
-              
+
               {(isRoundOver || wrongGuesses > 0) && (
                 <div className="mb-2">
                   <span className="font-semibold text-green-800">Example:</span>
@@ -508,7 +585,7 @@ export default function App() {
                   </div>
                 </div>
               )}
-              
+
               {(isRoundOver || wrongGuesses > 1) && (
                 <div className="mb-2">
                   <span className="font-semibold text-green-800">Etymology:</span>
@@ -539,7 +616,7 @@ export default function App() {
                           transition-all duration-150
                           ${isRevealed ? 'border-green-600 text-green-800 bg-green-50 cursor-not-allowed' :
                             isCurrent ? 'border-blue-500 text-blue-900 bg-blue-50 animate-pulse cursor-text' :
-                            'border-gray-300 text-green-900 cursor-text'}
+                              'border-gray-300 text-green-900 cursor-text'}
                         `}
                         onClick={() => {
                           if (!isRevealed && !isRoundOver) setCursor(i);
@@ -555,7 +632,7 @@ export default function App() {
                   ref={inputRef}
                   type="text"
                   value=""
-                  onChange={() => {}} // Prevent React warning
+                  onChange={() => { }} // Prevent React warning
                   style={{ position: "absolute", left: "-9999px" }}
                   onBlur={() => {
                     if (inputRef.current) setTimeout(() => inputRef.current.focus(), 10);
@@ -674,7 +751,6 @@ export default function App() {
               </div>
             </>
           )}
-          
           <div className="h-6 text-center text-green-800 font-bold">{message}</div>
           {isRoundOver && remaining.length > 0 ? (
             <div className="text-center text-green-600 text-sm mt-4">
@@ -683,37 +759,41 @@ export default function App() {
           ) : null}
         </div>
 
-        <div className="mt-8 text-green-600 text-sm italic">
-          Guess the word from its definition. Hints will appear after wrong guesses!
-        </div>
-
+        {/* Garden (Words Learned) Section */}
         <div className="mt-8 max-w-md w-full">
           <h2 className="text-xl font-bold text-green-700 mb-2 flex items-center">
-            <span role="img" aria-label="garden" className="mr-2">🌸</span> Garden (Words Learned)
+            <span role="img" aria-label="garden" className="mr-2">🌸</span>
+            Garden (Words Learned: {garden.length})
           </h2>
+          <div className="text-green-600 text-sm mb-3 bg-green-50 p-2 rounded">
+            Currently viewing: <span className="font-semibold">{WORD_BANKS.find(b => b.type === wordBankType)?.label}</span> word bank
+          </div>
           {garden.length === 0 ? (
             <div className="text-green-800 italic">No words learned yet.</div>
           ) : (
             <ul className="list-disc pl-6">
               {garden.map((w, index) => (
-                <li key={`${w.word}-${index}`} className="mb-1">
-                  <span className="font-semibold text-green-900">{w.word}</span>{" "}
-                  <span className="text-green-700">({w.form})</span>
-                  <span className="text-green-600"> [{w.origin}]</span>:{" "}
-                  <span className="italic text-green-800">{w.definition}</span>
+                <li key={`${w.word}-${index}`} className="mb-2 flex items-baseline">
+                  <span className="mr-2">{getOriginEmoji(w.origin)}</span>
+                  <span>
+                    <span className="font-semibold text-green-900">{w.word}</span>{" "}
+                    <span className="text-green-700">({w.form})</span>
+                    <span className="text-green-600"> [{w.origin}]</span>:{" "}
+                    <span className="italic text-green-800">{w.definition}</span>
+                  </span>
                 </li>
               ))}
             </ul>
           )}
           {garden.length > 0 && (
             <div className="mt-6 flex flex-col items-center">
-    <button
-  type="button"
-  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full mb-2"
-  onClick={() => downloadCSV(garden, setDownloadUrl)}
->
-  Download Garden as CSV
-</button>
+              <button
+                type="button"
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full mb-2"
+                onClick={() => downloadCSV(garden, setDownloadUrl)}
+              >
+                Download Garden as CSV
+              </button>
               {downloadUrl && (
                 <a
                   href={downloadUrl}
