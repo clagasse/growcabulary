@@ -99,13 +99,12 @@ export default function App() {
   const [words, setWords] = useState([]);
   const [remaining, setRemaining] = useState([]);
   const [current, setCurrent] = useState(0);
-  const [score, setScore] = useState(50);
+  const [score, setScore] = useState(100);
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [message, setMessage] = useState("");
   const [timer, setTimer] = useState(0);
   const [intervalId, setIntervalId] = useState(null);
   const [garden, setGarden] = useState([]);
-  const [revealedCount, setRevealedCount] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [penalties, setPenalties] = useState(0);
   const [totalScore, setTotalScore] = useState(0);
@@ -114,6 +113,7 @@ export default function App() {
   const [averageScore, setAverageScore] = useState(0);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isRoundOver, setIsRoundOver] = useState(false);
 
   // For custom input bar
   const inputRef = useRef(null);
@@ -123,7 +123,7 @@ export default function App() {
   // CSV loading and robust state validation
   useEffect(() => {
     setIsLoading(true);
-    fetch(process.env.PUBLIC_URL + '/growcabulary_words_with_origin.csv')
+    fetch(process.env.PUBLIC_URL + '/growcabulary_words_enhanced.csv')
       .then(res => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.text();
@@ -202,10 +202,10 @@ export default function App() {
 
     setWrongGuesses(0);
     setMessage("");
-    setScore(50);
+    setScore(100);
     setTimer(0);
-    setRevealedCount(0);
     setPenalties(0);
+    setIsRoundOver(false);
 
     // For custom input bar
     const word = remaining[current]?.word || "";
@@ -214,46 +214,40 @@ export default function App() {
 
     if (inputRef.current) inputRef.current.focus();
 
-    const startTime = Date.now();
-    const id = setInterval(() => {
-      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-
-      if (elapsedSeconds >= 50) {
-        clearInterval(id);
-        setTimer(50);
-        setMessage("Time's up! The word was: " + (remaining[current]?.word || ""));
-        return;
-      }
-
-      setTimer(elapsedSeconds);
-
-      if (elapsedSeconds > 0 && elapsedSeconds % 5 === 0) {
-        setRevealedCount(prev => {
-          const word = remaining[current]?.word || "";
-          return Math.min(prev + 1, word.length);
+    // Only start timer if welcome screen is not showing
+    if (!showWelcome) {
+      const id = setInterval(() => {
+        setTimer(prev => {
+          if (prev + 1 >= 100) {
+            clearInterval(id);
+            setMessage("Time's up! The word was: " + (remaining[current]?.word || "") + ". Press Enter for next word");
+            setScore(0);
+            setIsRoundOver(true);
+            return 100;
+          }
+          return prev + 1;
         });
-      }
-    }, 1000);
+      }, 1000);
 
-    setIntervalId(id);
+      setIntervalId(id);
 
-    return () => {
-      if (id) clearInterval(id);
-    };
-  }, [current, remaining]);
-
-  // If revealedCount increases, move cursor if needed
-  useEffect(() => {
-    if (!Array.isArray(remaining) || !remaining[current]) return;
-    if (cursor < revealedCount) {
-      setCursor(revealedCount);
+      return () => {
+        if (id) clearInterval(id);
+      };
     }
-  }, [revealedCount, remaining, current]); 
+  }, [current, remaining, showWelcome]);
 
+  // Score calculation and auto-reveal at 0
   useEffect(() => {
-    if (timer >= 50 || message.startsWith("Correct")) return;
-    setScore(Math.max(0, 50 - timer - penalties));
-  }, [timer, penalties, message]);
+    if (timer >= 100 || isRoundOver) return;
+    const newScore = Math.max(0, 100 - timer - penalties);
+    setScore(newScore);
+    if (newScore <= 0) {
+      const currentWord = remaining[current]?.word || "";
+      setMessage("Time's up! The word was: " + currentWord + ". Press Enter for next word");
+      setIsRoundOver(true);
+    }
+  }, [timer, penalties, isRoundOver, remaining, current]);
 
   // Always keep focus on the input
   useEffect(() => {
@@ -262,26 +256,36 @@ export default function App() {
 
   function buildFullAnswer() {
     const word = remaining[current]?.word || "";
+    const revealedCount = Math.min(Math.floor(timer / 5), word.length);
     return word.split('').map((ch, i) =>
       i < revealedCount ? ch : guess[i] || ''
     ).join('');
   }
 
   function checkAnswer() {
-    if (message.startsWith("Correct") || message.startsWith("Time's up")) return;
+    if (isRoundOver) return;
 
-    const currentWord = remaining[current]?.word || "";
-    if (buildFullAnswer().toLowerCase() === currentWord.toLowerCase()) {
-      setMessage("Correct! 🌱");
+    const word = remaining[current]?.word || "";
+    const revealedCount = Math.min(Math.floor(timer / 5), word.length);
+    if (buildFullAnswer().toLowerCase() === word.toLowerCase()) {
+      setMessage("Correct! 🌱 Press Enter for next word");
+      setIsRoundOver(true);
       clearInterval(intervalId);
     } else {
-      setPenalties(prev => prev + 10);
+      const newPenalties = penalties + 10;
+      setPenalties(newPenalties);
       setMessage("Try again! -10 points");
       setWrongGuesses(g => g + 1);
+      if (100 - timer - newPenalties <= 0) {
+        setScore(0);
+        setMessage("Time's up! The word was: " + word + ". Press Enter for next word");
+        setIsRoundOver(true);
+      }
     }
   }
 
   function nextWord() {
+    setIsRoundOver(false);
     const completedWord = remaining[current];
 
     const finalWordScore = Math.max(0, score);
@@ -301,6 +305,7 @@ export default function App() {
     if (newRemaining.length === 0) {
       setRemaining([]);
       setMessage("Congratulations! You've completed all words.");
+      setIsRoundOver(true);
       return;
     }
     const newIdx = getRandomIndex(newRemaining);
@@ -355,14 +360,9 @@ export default function App() {
   }
 
   const currentWord = remaining[current];
-  const roundOver =
-    message.startsWith("Correct") ||
-    message.startsWith("Time's up") ||
-    message.startsWith("Congratulations");
-
-  // --- Custom Input Bar ---
   const word = currentWord.word;
   const wordLength = word.length;
+  const revealedCount = Math.min(Math.floor(timer / 5), word.length);
 
   // Always focus the input when the bar is clicked
   const focusInput = () => inputRef.current?.focus();
@@ -389,13 +389,13 @@ export default function App() {
             </h2>
             <div className="space-y-4 text-green-900">
               <p className="leading-relaxed">
-                Cultivate your lexicon by learning and practicing complex English words. Try to guess the word using its definition, origin, and other hints. 
+                Grow your vocabulary garden by learning advanced English words! Each word is a seed waiting to bloom through your knowledge.
               </p>
               
               <div className="bg-green-50 p-4 rounded-lg">
                 <h3 className="font-bold text-green-800 mb-2">How to Play:</h3>
                 <ul className="list-disc pl-5 space-y-2 text-green-800">
-                  <li>Each round starts with <span className="font-semibold">50 points</span></li>
+                  <li>Each round starts with <span className="font-semibold">100 points</span></li>
                   <li>Points decrease as time passes (1 point per second)</li>
                   <li>Wrong guesses cost 10 points each</li>
                   <li>A letter is revealed every 5 seconds as a hint</li>
@@ -403,11 +403,21 @@ export default function App() {
               </div>
 
               <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-bold text-green-800 mb-2">Hints System:</h3>
+                <ul className="list-disc pl-5 space-y-2 text-green-800">
+                  <li>Start with the word's definition</li>
+                  <li>First wrong guess reveals an example sentence</li>
+                  <li>Second wrong guess shows the etymology</li>
+                  <li>Letters are gradually revealed to help you</li>
+                </ul>
+              </div>
+
+              <div className="bg-green-50 p-4 rounded-lg">
                 <h3 className="font-bold text-green-800 mb-2">Track Your Progress:</h3>
                 <ul className="list-disc pl-5 space-y-2 text-green-800">
                   <li>Successfully guessed words go to your <span className="font-semibold">Garden</span></li>
-                  <li>Your score and Garden will be saved in your browser.</li>
-                  <li>You can download your Garden anytime as a CSV file.</li>
+                  <li>Track your total score and highest word score</li>
+                  <li>Download your learned words anytime</li>
                 </ul>
               </div>
             </div>
@@ -488,18 +498,18 @@ export default function App() {
                 <div className="italic">{currentWord.definition}</div>
               </div>
               
-              {(roundOver || wrongGuesses > 0) && (
+              {(isRoundOver || wrongGuesses > 0) && (
                 <div className="mb-2">
                   <span className="font-semibold text-green-800">Example:</span>
                   <div className="text-green-900">
-                    {roundOver
+                    {isRoundOver
                       ? currentWord.example
                       : maskWordInExample(currentWord.example, currentWord.word)}
                   </div>
                 </div>
               )}
               
-              {(roundOver || wrongGuesses > 1) && (
+              {(isRoundOver || wrongGuesses > 1) && (
                 <div className="mb-2">
                   <span className="font-semibold text-green-800">Etymology:</span>
                   <div
@@ -519,7 +529,7 @@ export default function App() {
                 >
                   {word.split('').map((letter, i) => {
                     const isRevealed = i < revealedCount;
-                    const isCurrent = i === cursor && !isRevealed && !roundOver;
+                    const isCurrent = i === cursor && !isRevealed && !isRoundOver;
                     return (
                       <span
                         key={i}
@@ -532,7 +542,7 @@ export default function App() {
                             'border-gray-300 text-green-900 cursor-text'}
                         `}
                         onClick={() => {
-                          if (!isRevealed && !roundOver) setCursor(i);
+                          if (!isRevealed && !isRoundOver) setCursor(i);
                           focusInput();
                         }}
                       >
@@ -546,41 +556,42 @@ export default function App() {
                   type="text"
                   value=""
                   onChange={() => {}} // Prevent React warning
+                  style={{ position: "absolute", left: "-9999px" }}
                   onBlur={() => {
-                    // Always refocus if not roundOver
-                    if (!roundOver && inputRef.current) setTimeout(() => inputRef.current.focus(), 10);
+                    if (inputRef.current) setTimeout(() => inputRef.current.focus(), 10);
                   }}
                   onKeyDown={e => {
-                    if (roundOver) return;
+                    if (isRoundOver) {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        nextWord();
+                      }
+                      // Block all other keys when round is over
+                      return;
+                    }
+                    // --- normal editing logic below ---
                     if (e.key === "Enter") {
+                      e.preventDefault();
+                      const word = remaining[current]?.word || "";
+                      const revealedCount = Math.min(Math.floor(timer / 5), word.length);
                       if (buildFullAnswer().toLowerCase() === word.toLowerCase()) {
                         checkAnswer();
                       } else {
-                        setPenalties(prev => prev + 10);
+                        const newPenalties = penalties + 10;
+                        setPenalties(newPenalties);
                         setMessage("Try again! -10 points");
                         setWrongGuesses(g => g + 1);
+                        if (100 - timer - newPenalties <= 0) {
+                          setScore(0);
+                          setMessage("Time's up! The word was: " + word + ". Press Enter for next word");
+                          setIsRoundOver(true);
+                        }
                       }
-                    } else if (e.key === "Backspace") {
-                      // Remove the last filled unrevealed box
-                      const prevIdx = getLastFilledIndex(guess, revealedCount);
-                      if (prevIdx >= revealedCount) {
-                        setGuess(g => {
-                          const newG = [...g];
-                          newG[prevIdx] = '';
-                          return newG;
-                        });
-                        setCursor(prevIdx);
-                      }
-                    } else if (e.key === "ArrowLeft") {
-                      let i = cursor - 1;
-                      while (i >= revealedCount && guess[i] === '' && i > revealedCount) i--;
-                      if (i >= revealedCount) setCursor(i);
-                    } else if (e.key === "ArrowRight") {
-                      let i = cursor + 1;
-                      while (i < wordLength && guess[i] !== '') i++;
-                      if (i < wordLength) setCursor(i);
-                    } else if (/^[a-zA-Z]$/.test(e.key)) {
-                      // Fill the next empty unrevealed box
+                      return;
+                    }
+                    // Handle letter input
+                    if (/^[a-zA-Z]$/.test(e.key)) {
+                      e.preventDefault();
                       const nextIdx = getNextEmptyIndex(guess, revealedCount);
                       if (nextIdx < wordLength) {
                         setGuess(g => {
@@ -593,27 +604,66 @@ export default function App() {
                         while (i < wordLength && guess[i]) i++;
                         setCursor(i < wordLength ? i : nextIdx);
                       }
+                      return;
+                    }
+
+                    // Handle Backspace
+                    if (e.key === "Backspace") {
+                      e.preventDefault();
+                      const prevIdx = getLastFilledIndex(guess, revealedCount);
+                      if (prevIdx >= revealedCount) {
+                        setGuess(g => {
+                          const newG = [...g];
+                          newG[prevIdx] = '';
+                          return newG;
+                        });
+                        setCursor(prevIdx);
+                      }
+                      return;
+                    }
+
+                    // Handle arrow keys
+                    if (e.key === "ArrowLeft") {
+                      e.preventDefault();
+                      let i = cursor - 1;
+                      while (i >= revealedCount && guess[i] === '' && i > revealedCount) i--;
+                      if (i >= revealedCount) setCursor(i);
+                    } else if (e.key === "ArrowRight") {
+                      e.preventDefault();
+                      let i = cursor + 1;
+                      while (i < wordLength && guess[i] !== '') i++;
+                      if (i < wordLength) setCursor(i);
                     }
                   }}
-                  disabled={roundOver}
-                  className="opacity-0 absolute pointer-events-none"
+                  disabled={false}
                   autoFocus
                   spellCheck={false}
                 />
                 <button
                   className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 mt-2"
                   onClick={() => {
+                    if (isRoundOver) {
+                      nextWord();
+                      return;
+                    }
+                    const word = remaining[current]?.word || "";
+                    const revealedCount = Math.min(Math.floor(timer / 5), word.length);
                     if (buildFullAnswer().toLowerCase() === word.toLowerCase()) {
                       checkAnswer();
                     } else {
-                      setPenalties(prev => prev + 10);
+                      const newPenalties = penalties + 10;
+                      setPenalties(newPenalties);
                       setMessage("Try again! -10 points");
                       setWrongGuesses(g => g + 1);
+                      if (100 - timer - newPenalties <= 0) {
+                        setScore(0);
+                        setMessage("Time's up! The word was: " + word + ". Press Enter for next word");
+                        setIsRoundOver(true);
+                      }
                     }
                   }}
-                  disabled={roundOver}
                 >
-                  Submit
+                  {isRoundOver ? "Next Word" : "Submit"}
                 </button>
               </div>
               {/* --- End Custom Input Bar --- */}
@@ -626,13 +676,10 @@ export default function App() {
           )}
           
           <div className="h-6 text-center text-green-800 font-bold">{message}</div>
-          {roundOver && remaining.length > 0 ? (
-            <button
-              className="mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-              onClick={nextWord}
-            >
-              Next Word
-            </button>
+          {isRoundOver && remaining.length > 0 ? (
+            <div className="text-center text-green-600 text-sm mt-4">
+              Press <b>Enter</b> for next word
+            </div>
           ) : null}
         </div>
 
@@ -642,7 +689,7 @@ export default function App() {
 
         <div className="mt-8 max-w-md w-full">
           <h2 className="text-xl font-bold text-green-700 mb-2 flex items-center">
-            <span role="img" aria-label="garden" className="mr-2">🌸</span> Garden
+            <span role="img" aria-label="garden" className="mr-2">🌸</span> Garden (Words Learned)
           </h2>
           {garden.length === 0 ? (
             <div className="text-green-800 italic">No words learned yet.</div>
@@ -660,12 +707,13 @@ export default function App() {
           )}
           {garden.length > 0 && (
             <div className="mt-6 flex flex-col items-center">
-              <button
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full mb-2"
-                onClick={() => downloadCSV(garden, setDownloadUrl)}
-              >
-                Download Garden as CSV
-              </button>
+    <button
+  type="button"
+  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full mb-2"
+  onClick={() => downloadCSV(garden, setDownloadUrl)}
+>
+  Download Garden as CSV
+</button>
               {downloadUrl && (
                 <a
                   href={downloadUrl}
