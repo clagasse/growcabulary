@@ -117,10 +117,8 @@ export default function App() {
   const [wordBankType, setWordBankType] = useState('rare');
   const [showBankDropdown, setShowBankDropdown] = useState(false);
 
-  // Welcome modal state
-  const [showWelcome, setShowWelcome] = useState(() => {
-    return !localStorage.getItem('growcabulary_welcome_dismissed');
-  });
+  // Help modal state
+  const [showHelp, setShowHelp] = useState(false);
 
   const [words, setWords] = useState([]);
   const [remaining, setRemaining] = useState([]);
@@ -246,30 +244,26 @@ export default function App() {
 
     if (inputRef.current) inputRef.current.focus();
 
-    // Only start timer if welcome screen is not showing
-    if (!showWelcome) {
-      const id = setInterval(() => {
-        setTimer(prev => {
-          if (prev + 1 >= 60) {
-            clearInterval(id);
-            setMessage("Time's up! The word was: " + (remaining[current]?.word || "") + ". Press Enter for next word");
-            setScore(0);
-            setIsRoundOver(true);
-            return 60;
-          }
-          return prev + 1;
-        });
-      }, 1000);
+    const id = setInterval(() => {
+      setTimer(prev => {
+        if (prev + 1 >= 60) {
+          clearInterval(id);
+          setMessage("Time's up! The word was: " + (remaining[current]?.word || "") + ". Press Enter for next word");
+          setScore(0);
+          setIsRoundOver(true);
+          return 60;
+        }
+        return prev + 1;
+      });
+    }, 1000);
 
-      setIntervalId(id);
+    setIntervalId(id);
 
-      return () => {
-        if (id) clearInterval(id);
-      };
-    }
-  }, [current, remaining, showWelcome]);
+    return () => {
+      if (id) clearInterval(id);
+    };
+  }, [current, remaining]);
 
-  // Score calculation and auto-reveal at 0
   useEffect(() => {
     if (timer >= 60 || isRoundOver) return;
     const newScore = Math.max(0, 60 - timer - penalties);
@@ -281,7 +275,6 @@ export default function App() {
     }
   }, [timer, penalties, isRoundOver, remaining, current]);
 
-  // Always keep focus on the input
   useEffect(() => {
     if (inputRef.current) inputRef.current.focus();
   });
@@ -432,61 +425,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-green-50 font-sans">
-      {/* Welcome Modal */}
-      {showWelcome && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full relative">
-            <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl"
-              onClick={() => {
-                setShowWelcome(false);
-                localStorage.setItem('growcabulary_welcome_dismissed', '1');
-              }}
-              aria-label="Close"
-            >
-              &times;
-            </button>
-            <h2 className="text-2xl font-bold text-green-700 mb-4 flex items-center">
-              <span role="img" aria-label="seedling" className="mr-2">🌱</span>
-              Welcome to Growcabulary!
-            </h2>
-            <div className="space-y-4 text-green-900">
-              <p className="leading-relaxed">
-                Cultivate your lexicon by learning and practicing complex English words. Try to guess the word using its definition, origin, and other hints.
-              </p>
-
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-bold text-green-800 mb-2">How to Play:</h3>
-                <ul className="list-disc pl-5 space-y-2 text-green-800">
-                  <li>Each round starts with <span className="font-semibold">50 points</span></li>
-                  <li>Points decrease as time passes (1 point per second)</li>
-                  <li>Wrong guesses cost 10 points each</li>
-                  <li>A letter is revealed every 5 seconds as a hint</li>
-                </ul>
-              </div>
-
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-bold text-green-800 mb-2">Track Your Progress:</h3>
-                <ul className="list-disc pl-5 space-y-2 text-green-800">
-                  <li>Successfully guessed words go to your <span className="font-semibold">Garden</span></li>
-                  <li>Your score and Garden will be saved in your browser.</li>
-                  <li>You can download your Garden anytime as a CSV file.</li>
-                </ul>
-              </div>
-            </div>
-            <button
-              className="mt-6 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 w-full font-semibold transition-colors"
-              onClick={() => {
-                setShowWelcome(false);
-                localStorage.setItem('growcabulary_welcome_dismissed', '1');
-              }}
-            >
-              Start Growing Your Vocabulary! 🌱
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* Score summary bar */}
       <div className="bg-white shadow-md p-2 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto flex justify-between items-center text-sm">
           <div className="flex items-center space-x-6">
@@ -555,9 +494,45 @@ export default function App() {
 
       <div className="flex-1 flex flex-col items-center justify-center py-8">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full border-2 border-green-200">
-          <h1 className="text-3xl font-bold text-green-700 mb-4 flex items-center">
-            <span role="img" aria-label="plant" className="mr-2">🌿</span> Growcabulary 🌿
-          </h1>
+          {/* Main game title and Help button */}
+          <div className="flex items-center mb-4">
+            <h1 className="text-3xl font-bold text-green-700 flex items-center">
+              <span role="img" aria-label="plant" className="mr-2">🌿</span> Growcabulary 🌿
+            </h1>
+            <button
+              className="ml-3 px-3 py-1 bg-green-200 text-green-900 rounded hover:bg-green-300 transition"
+              onClick={() => setShowHelp(true)}
+              aria-label="Show help"
+            >
+              Help
+            </button>
+          </div>
+
+          {/* Help Modal */}
+          {showHelp && (
+            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full relative">
+                <button
+                  className="absolute top-2 right-2 text-gray-500 hover:text-green-700 text-xl"
+                  onClick={() => setShowHelp(false)}
+                  aria-label="Close help"
+                >
+                  &times;
+                </button>
+                <h2 className="text-2xl font-semibold mb-2 text-green-800">How to Play</h2>
+                <ul className="list-disc pl-5 text-gray-700 space-y-2">
+                  <li>Guess the word using the definition and word length.</li>
+                  <li>Hints and letters are revealed as you make incorrect guesses or as time passes.</li>
+                  <li>Choose your seed bank to determine the difficulty and rarity of words that will be used.</li>
+                  <li>Your score is based on speed and accuracy. Try to get the highest score!</li>
+                  <li>Words you master are added to your Garden, which you can download as a CSV.</li>
+                  <li>Click the Help button anytime for instructions.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Main game area */}
           {currentWord && (
             <>
               <div className="mb-2">
@@ -809,6 +784,8 @@ export default function App() {
           )}
         </div>
       </div>
-    </div>
+        </div>
   );
 }
+
+
