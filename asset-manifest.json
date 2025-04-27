@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/growcabulary/static/css/main.ea9c28fd.css",
-    "main.js": "/growcabulary/static/js/main.77d08881.js",
+    "main.css": "/growcabulary/static/css/main.e37f2a0a.css",
+    "main.js": "/growcabulary/static/js/main.efae008c.js",
     "static/js/453.a9114a2b.chunk.js": "/growcabulary/static/js/453.a9114a2b.chunk.js",
     "index.html": "/growcabulary/index.html",
-    "main.ea9c28fd.css.map": "/growcabulary/static/css/main.ea9c28fd.css.map",
-    "main.77d08881.js.map": "/growcabulary/static/js/main.77d08881.js.map",
+    "main.e37f2a0a.css.map": "/growcabulary/static/css/main.e37f2a0a.css.map",
+    "main.efae008c.js.map": "/growcabulary/static/js/main.efae008c.js.map",
     "453.a9114a2b.chunk.js.map": "/growcabulary/static/js/453.a9114a2b.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.ea9c28fd.css",
-    "static/js/main.77d08881.js"
+    "static/css/main.e37f2a0a.css",
+    "static/js/main.efae008c.js"
   ]
 }
