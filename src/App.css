@@ -36,3 +36,19 @@
     transform: rotate(360deg);
   }
 }
+
+
+.round-over {
+  transition: all 0.5s ease;
+  opacity: 1;
+}
+
+.round-over span {
+  transition: all 0.5s ease;
+  transform: translateY(0);
+}
+
+.round-over span:not([data-revealed]) {
+  opacity: 0;
+  transform: translateY(20px);
+}
