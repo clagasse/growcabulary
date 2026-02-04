@@ -307,30 +307,37 @@ const App: React.FC = () => {
     setFocusedIndex(0);
   };
 
-  const initSeedBank = async (type: SeedType) => {
-    setSelectedSeed(type);
-    setIsNewBest(false);
-    let filtered = RAW_WORDS.filter(w => w.seed === type && !playedWords.includes(w.word));
-    if (filtered.length < WORDS_PER_ROUND) {
-      const allInCategory = RAW_WORDS.filter(w => w.seed === type).map(w => w.word);
-      setPlayedWords(prev => prev.filter(w => !allInCategory.includes(w)));
-      filtered = RAW_WORDS.filter(w => w.seed === type);
-    }
-    
-    if (filtered.length === 0) {
-      alert("No words found in this category. Returning to main menu.");
-      setShowWelcome(true);
-      setSelectedSeed(null);
-      return;
-    }
+const initSeedBank = async (type: SeedType) => {
+  setSelectedSeed(type);
+  setIsNewBest(false);
 
-    const shuffled = [...filtered].sort(() => Math.random() - 0.5).slice(0, WORDS_PER_ROUND);
-    setRemainingWords(shuffled);
-    setCurrentWordIndex(0);
-    setShowWelcome(false);
-    resetWordState(shuffled[0]);
-    setCurrentRoundScore(0);
-  };
+  const allInCategory = RAW_WORDS.filter(w => w.seed === type).map(w => w.word);
+
+  // compute locally so filtering is consistent in this call
+  let effectivePlayed = playedWords;
+
+  let filtered = RAW_WORDS.filter(w => w.seed === type && !effectivePlayed.includes(w.word));
+
+  if (filtered.length < WORDS_PER_ROUND) {
+    effectivePlayed = effectivePlayed.filter(w => !allInCategory.includes(w));
+    filtered = RAW_WORDS.filter(w => w.seed === type && !effectivePlayed.includes(w.word));
+    setPlayedWords(effectivePlayed);
+  }
+
+  if (filtered.length === 0) {
+    alert("No words found in this category. Returning to main menu.");
+    setShowWelcome(true);
+    setSelectedSeed(null);
+    return;
+  }
+
+  const shuffled = [...filtered].sort(() => Math.random() - 0.5).slice(0, WORDS_PER_ROUND);
+  setRemainingWords(shuffled);
+  setCurrentWordIndex(0);
+  setShowWelcome(false);
+  resetWordState(shuffled[0]);
+  setCurrentRoundScore(0);
+};
 
   const handleSuccess = () => {
     if (!currentWord) return;
