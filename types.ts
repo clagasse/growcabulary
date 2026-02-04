@@ -1,5 +1,4 @@
-
-export type SeedType = 'uncommon' | 'rare' | 'exotic';
+export type SeedType = 'garden' | 'meadow' | 'conservatory' | 'philosophy' | 'emotions' | 'biology' | 'architecture';
 
 export interface Word {
   word: string;
