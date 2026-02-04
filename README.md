@@ -1,5 +1,20 @@
-A web-based game to learn and practice advanced english words. Play here: https://clagasse.github.io/growcabulary/
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-How to play: Guess the word using the definition and word length. Hints and letters are revealed as you make incorrect guesses or as time passes. Each word starts at 60 points. Points decrease over time and with wrong guesses. Every round is 10 words. Try to get the highest score for each round!
+# Run and deploy your AI Studio app
 
-Choose your seed bank to determine the difficulty and rarity of words that will be used. The word garden and scores are stored locally. Each seed bank has their own score and garden. Completed words are added to your Garden, which you can download as a CSV.
+This contains everything you need to run your app locally.
+
+View your app in AI Studio: https://ai.studio/apps/drive/1NJUSLp-t2JDVzHinEt2ng0sn1zTKScoj
+
+## Run Locally
+
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

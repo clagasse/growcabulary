@@ -14,12 +14,9 @@ import { RAW_WORDS } from './utils/data';
 const App: React.FC = () => {
   // Persistence Migration & Initialization
   const migrateSeedType = (oldType: string): SeedType => {
-    // Legacy migration logic from original Uncommon/Rare/Exotic or other older tags
     if (oldType === 'uncommon') return 'garden';
     if (oldType === 'rare') return 'meadow';
     if (oldType === 'exotic') return 'conservatory';
-    // Deep legacy fallback if data was swapped before
-    if (oldType === 'meadow' && !NICHE_BANKS.find(b => b.type === 'meadow')) return 'garden'; 
     return oldType as SeedType;
   };
 
@@ -49,7 +46,6 @@ const App: React.FC = () => {
     const defaults = { garden: 0, meadow: 0, conservatory: 0, philosophy: 0, emotions: 0, biology: 0, architecture: 0 };
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Migrate legacy keys if they exist in save data
       return {
         garden: parsed.garden ?? parsed.uncommon ?? 0,
         meadow: parsed.meadow ?? parsed.rare ?? 0,
@@ -107,6 +103,7 @@ const App: React.FC = () => {
   const [showGarden, setShowGarden] = useState(false);
   const [gardenPracticeMode, setGardenPracticeMode] = useState(false);
   const [revealedGardenWords, setRevealedGardenWords] = useState<Set<string>>(new Set());
+  const [selectedGardenWord, setSelectedGardenWord] = useState<GardenEntry | null>(null);
   const [showRoundResult, setShowRoundResult] = useState(false);
   const [currentRoundScore, setCurrentRoundScore] = useState(0);
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
@@ -638,43 +635,43 @@ const App: React.FC = () => {
 
       {/* Garden Modal */}
       {showGarden && (
-        <div className="fixed inset-0 z-[60] bg-emerald-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-4xl h-[85vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
-            <div className="p-6 border-b border-emerald-100 bg-emerald-50">
-              <div className="flex justify-between items-start mb-6">
+        <div className="fixed inset-0 z-[60] bg-emerald-950/80 backdrop-blur-md flex items-center justify-center sm:p-4">
+          <div className="bg-white w-full sm:max-w-4xl h-full sm:h-[85vh] sm:rounded-3xl overflow-hidden flex flex-col shadow-2xl relative">
+            <div className="p-4 sm:p-6 border-b border-emerald-100 bg-emerald-50 shrink-0">
+              <div className="flex justify-between items-start mb-4 sm:mb-6">
                 <div>
-                  <h2 className="serif text-2xl font-bold text-emerald-900">My Secret Garden 🌸</h2>
-                  <p className="text-xs text-emerald-600 font-medium italic">Cultivated Lexicon Archive</p>
+                  <h2 className="serif text-xl sm:text-2xl font-bold text-emerald-900">My Secret Garden 🌸</h2>
+                  <p className="text-[10px] sm:text-xs text-emerald-600 font-medium italic">Cultivated Lexicon Archive</p>
                 </div>
                 <button onClick={() => setShowGarden(false)} className="p-2 hover:bg-emerald-200 rounded-full transition-colors text-emerald-800">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button 
                     onClick={() => { setGardenPracticeMode(!gardenPracticeMode); setRevealedGardenWords(new Set()); }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all border-2 ${gardenPracticeMode ? 'bg-emerald-800 border-emerald-900 text-white' : 'bg-white border-emerald-200 text-emerald-800'}`}
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border-2 ${gardenPracticeMode ? 'bg-emerald-800 border-emerald-900 text-white' : 'bg-white border-emerald-200 text-emerald-800'}`}
                   >
                     <span>{gardenPracticeMode ? 'Practice Mode: ON 🧠' : 'Practice Mode: OFF 📖'}</span>
                   </button>
                   {gardenPracticeMode && (
-                    <div className="flex gap-2 animate-fade-in">
+                    <div className="flex gap-2 animate-fade-in shrink-0">
                       <button onClick={() => setRevealedGardenWords(new Set(gardenList.map(w => w.word)))} className="text-[10px] font-bold text-emerald-600 hover:underline">Reveal All</button>
                       <button onClick={() => setRevealedGardenWords(new Set())} className="text-[10px] font-bold text-emerald-600 hover:underline">Hide All</button>
                     </div>
                   )}
                 </div>
-                <div className="text-[10px] font-black uppercase text-emerald-400 tracking-widest bg-emerald-100/50 px-3 py-1 rounded-full border border-emerald-100">
+                <div className="text-[10px] font-black uppercase text-emerald-400 tracking-widest bg-emerald-100/50 px-3 py-1 rounded-full border border-emerald-100 whitespace-nowrap">
                    Total Blooms: {gardenList.length} 🎋
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-emerald-50/20">
+            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-emerald-50/20">
               {gardenList.length === 0 ? (
                 <div className="col-span-full flex flex-col items-center justify-center py-20 text-center text-emerald-300">
                   <span className="text-6xl mb-4">🍂</span>
@@ -687,49 +684,118 @@ const App: React.FC = () => {
                   return (
                     <div 
                       key={idx} 
-                      onClick={() => gardenPracticeMode && toggleGardenPracticeWord(word.word)}
-                      className={`bg-white border-2 rounded-2xl p-4 transition-all relative overflow-hidden flex flex-col
-                        ${isWordRevealed ? 'border-emerald-100 hover:border-emerald-500' : 'border-emerald-200/50 bg-emerald-50/30 cursor-pointer group'}`}
+                      onClick={() => {
+                        if (gardenPracticeMode && !isWordRevealed) {
+                          toggleGardenPracticeWord(word.word);
+                        } else {
+                          setSelectedGardenWord(word);
+                        }
+                      }}
+                      className={`bg-white border-2 rounded-2xl p-3 sm:p-4 transition-all relative overflow-hidden flex flex-col cursor-pointer active:scale-[0.98] group shadow-sm
+                        ${isWordRevealed ? 'border-emerald-100 hover:border-emerald-500' : 'border-emerald-200/50 bg-emerald-50/30'}`}
                     >
                       <div className="flex justify-between items-start mb-2">
-                         <span className="text-[9px] font-black uppercase text-emerald-300 tracking-tighter">Learned {word.dateLearned}</span>
-                         <span className="bg-emerald-100 text-emerald-800 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">{word.seed}</span>
+                         <span className="text-[8px] font-black uppercase text-emerald-300 tracking-tighter">Learned {word.dateLearned}</span>
+                         <span className="bg-emerald-100 text-emerald-800 text-[7px] font-black px-1 py-0.5 rounded uppercase">{word.seed}</span>
                       </div>
                       
-                      <div className="mb-3">
+                      <div className="mb-2">
                         {isWordRevealed ? (
-                          <h3 className="text-lg font-black text-emerald-800 mb-1 animate-fade-in">{word.word}</h3>
+                          <h3 className="text-base sm:text-lg font-black text-emerald-800 mb-0.5 animate-fade-in">{word.word}</h3>
                         ) : (
-                          <div className="flex flex-col items-start gap-2">
-                             <h3 className="text-lg font-black text-emerald-300 italic tracking-widest">? ? ?</h3>
-                             <span className="text-[9px] font-black text-white bg-emerald-500 px-2 py-0.5 rounded-full uppercase opacity-0 group-hover:opacity-100 transition-opacity">Reveal word roots</span>
+                          <div className="flex flex-col items-start gap-1">
+                             <h3 className="text-base sm:text-lg font-black text-emerald-300 italic tracking-widest">? ? ?</h3>
+                             <span className="text-[7px] font-black text-white bg-emerald-500 px-1.5 py-0.5 rounded-full uppercase opacity-0 group-hover:opacity-100 transition-opacity">Tap to reveal</span>
                           </div>
                         )}
-                        <span className="inline-block bg-emerald-50 text-emerald-500 text-[9px] font-bold px-1.5 rounded uppercase mb-2">{word.form}</span>
+                        <span className="inline-block bg-emerald-50 text-emerald-500 text-[8px] font-bold px-1.5 rounded uppercase">{word.form}</span>
                       </div>
 
-                      <p className={`text-xs text-emerald-700 leading-relaxed mb-4 grow ${!isWordRevealed ? 'line-clamp-6' : 'line-clamp-4'}`}>
+                      <p className={`text-[11px] sm:text-xs text-emerald-700 leading-relaxed mb-3 grow line-clamp-3`}>
                         {word.definition}
                       </p>
 
-                      <div className="flex justify-between items-center mt-auto">
+                      <div className="flex justify-between items-center mt-auto border-t border-emerald-50 pt-2">
                          <div className="flex items-center gap-1">
-                            <span className="text-base">{ORIGIN_EMOJI_MAP[word.origin] || '🍄'}</span>
-                            <span className="text-[10px] font-bold text-emerald-400 capitalize">{word.origin}</span>
+                            <span className="text-sm">{ORIGIN_EMOJI_MAP[word.origin] || '🍄'}</span>
+                            <span className="text-[9px] font-bold text-emerald-400 capitalize">{word.origin}</span>
                          </div>
-                         <span className="text-[10px] font-black text-emerald-800 bg-white border border-emerald-100 px-2 py-1 rounded-full">{word.score} pts</span>
+                         <div className="flex items-center gap-1.5">
+                            <span className="text-[8px] font-black text-emerald-300 uppercase">View Roots</span>
+                            <span className="text-[9px] font-black text-emerald-800 bg-white border border-emerald-100 px-2 py-0.5 rounded-full">{word.score} pts</span>
+                         </div>
                       </div>
-
-                      {isWordRevealed && (
-                        <div className="mt-3 pt-3 border-t border-emerald-50 animate-fade-in">
-                           <p className="text-[8px] font-black text-emerald-300 uppercase mb-1">Word Roots</p>
-                           <p className="text-[10px] text-emerald-500 italic leading-relaxed line-clamp-3">{word.etymology}</p>
-                        </div>
-                      )}
                     </div>
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Word Detail Modal (Picked from Garden) */}
+      {selectedGardenWord && (
+        <div className="fixed inset-0 z-[100] bg-emerald-950/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl animate-scale-in border-4 border-emerald-100">
+            <div className="p-6 sm:p-8">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">{selectedGardenWord.seed} specimen</span>
+                    <span className="bg-emerald-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">{selectedGardenWord.form}</span>
+                  </div>
+                  <h2 className="serif text-3xl sm:text-4xl font-black text-emerald-900">{selectedGardenWord.word}</h2>
+                </div>
+                <button onClick={() => setSelectedGardenWord(null)} className="p-2 hover:bg-emerald-100 rounded-full transition-colors text-emerald-800">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+                   <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Primary Definition</p>
+                   <p className="text-sm sm:text-base text-emerald-900 font-medium leading-relaxed">{selectedGardenWord.definition}</p>
+                   {selectedGardenWord.definition2 && (
+                     <p className="text-xs sm:text-sm text-emerald-700 mt-2 italic border-l-2 border-emerald-200 pl-3">{selectedGardenWord.definition2}</p>
+                   )}
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-emerald-50">
+                   <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Example usage</p>
+                   <p className="text-sm text-emerald-800 italic leading-relaxed">"{selectedGardenWord.example}"</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Origin</p>
+                    <div className="flex items-center gap-2">
+                       <span className="text-2xl">{ORIGIN_EMOJI_MAP[selectedGardenWord.origin] || '🍄'}</span>
+                       <span className="text-sm font-bold text-emerald-800">{selectedGardenWord.origin}</span>
+                    </div>
+                  </div>
+                  <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Harvest Score</p>
+                    <div className="flex items-center gap-2">
+                       <span className="text-2xl">🌾</span>
+                       <span className="text-sm font-bold text-emerald-800">{selectedGardenWord.score} pts</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-emerald-100">
+                  <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Word Roots 🪴</p>
+                  <p className="text-xs sm:text-sm text-emerald-600 italic leading-relaxed">{selectedGardenWord.etymology}</p>
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <button onClick={() => setSelectedGardenWord(null)} className="w-full py-4 bg-emerald-800 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-900 active:scale-95 transition-all text-lg">
+                  Return to Garden 🌸
+                </button>
+              </div>
             </div>
           </div>
         </div>
