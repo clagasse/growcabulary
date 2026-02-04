@@ -98,7 +98,7 @@ const App: React.FC = () => {
   });
 
   // UI State
-  const [showWelcome, setShowWelcome] = useState(!selectedSeed);
+  const [showWelcome, setShowWelcome] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
   const [showGarden, setShowGarden] = useState(false);
   const [gardenPracticeMode, setGardenPracticeMode] = useState(false);
@@ -228,6 +228,13 @@ const App: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [isRoundOver, currentWord, showWelcome, revealOneLetter, getDynamicInterval]);
 
+  useEffect(() => {
+  if (selectedSeed && remainingWords.length === 0 && !showWelcome) {
+    initSeedBank(selectedSeed);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [selectedSeed]);
+
   const handleFail = useCallback(() => {
     if (isRoundOver || !currentWord) return;
     setIsRoundOver(true);
@@ -311,32 +318,32 @@ const initSeedBank = async (type: SeedType) => {
   setSelectedSeed(type);
   setIsNewBest(false);
 
-  const allInCategory = RAW_WORDS.filter(w => w.seed === type).map(w => w.word);
-
-  // compute locally so filtering is consistent in this call
-  let effectivePlayed = playedWords;
-
-  let filtered = RAW_WORDS.filter(w => w.seed === type && !effectivePlayed.includes(w.word));
+  // Use the synchronous filtering logic
+  const allInCategory = RAW_WORDS.filter(w => w.seed === type);
+  let effectivePlayed = [...playedWords];
+  let filtered = allInCategory.filter(w => !effectivePlayed.includes(w.word));
 
   if (filtered.length < WORDS_PER_ROUND) {
-    effectivePlayed = effectivePlayed.filter(w => !allInCategory.includes(w));
-    filtered = RAW_WORDS.filter(w => w.seed === type && !effectivePlayed.includes(w.word));
+    const categoryWordNames = allInCategory.map(w => w.word);
+    effectivePlayed = effectivePlayed.filter(w => !categoryWordNames.includes(w));
+    filtered = allInCategory; // Reset to all words in category
     setPlayedWords(effectivePlayed);
   }
 
   if (filtered.length === 0) {
-    alert("No words found in this category. Returning to main menu.");
+    alert("No words found in this category.");
     setShowWelcome(true);
-    setSelectedSeed(null);
     return;
   }
 
   const shuffled = [...filtered].sort(() => Math.random() - 0.5).slice(0, WORDS_PER_ROUND);
+  
+  // SET ALL STATE TOGETHER
   setRemainingWords(shuffled);
   setCurrentWordIndex(0);
-  setShowWelcome(false);
   resetWordState(shuffled[0]);
   setCurrentRoundScore(0);
+  setShowWelcome(false); // Only hide welcome once words are ready
 };
 
   const handleSuccess = () => {
