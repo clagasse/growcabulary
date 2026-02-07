@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     
     const isGitHubPages = mode === 'gh-pages';
-    const base = isGitHubPages ? '/growcabulary/' : '/';
+    const base: '/';
 
     return {
       base: base,
