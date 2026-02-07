@@ -20,7 +20,7 @@
 
     "predeploy": "vite build --mode gh-pages",
 
-    "deploy": "gh-pages -d dist"
+    "deploy": "npm run build && gh-pages -d dist"
 
   },
 
