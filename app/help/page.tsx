@@ -141,8 +141,11 @@ export default function HelpPage() {
           <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
             Solving a word once only plants it. True mastery requires recalling it accurately over
             time. As a word&apos;s spaced-repetition interval grows, it advances through 5 botanical
-            stages and earns points toward your overall <strong>Botanical Rank</strong> (from{' '}
-            <em>Seedling</em> up to <em>Grand Arborist</em>).
+            stages and earns points toward your overall{' '}
+            <Link href="/ranks" className="font-bold underline text-emerald-950">
+              Botanical Rank
+            </Link>{' '}
+            (from <em>Forager</em> up to <em>Grand Arborist</em>).
           </p>
 
           <div className="space-y-2">

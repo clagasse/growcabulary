@@ -39,19 +39,22 @@ export const ORIGIN_EMOJI_MAP: Record<string, string> = {
 };
 
 export const BOTANICAL_RANKS = [
-  { min: 0, title: 'Seedling', emoji: '🌱' },
-  { min: 3, title: 'Sprout', emoji: '🌿' },
-  { min: 7, title: 'Bud', emoji: '🪴' },
-  { min: 12, title: 'Sapling', emoji: '🎋' },
-  { min: 18, title: 'Plant', emoji: '☘️' },
-  { min: 26, title: 'Gardener', emoji: '👨‍🌾' },
-  { min: 35, title: 'Cultivator', emoji: '👨‍🔧' },
-  { min: 46, title: 'Botanist', emoji: '🔬' },
-  { min: 60, title: 'Dendrologist', emoji: '🌲' },
-  { min: 80, title: 'Arboriculturalist', emoji: '🌳' },
-  { min: 100, title: 'Sage', emoji: '🧙' },
-  { min: 130, title: 'Lexicographer', emoji: '🏛️' },
-  { min: 170, title: 'Grand Arborist', emoji: '👑' },
+  { min: 0, title: 'Forager', emoji: '🧺' },
+  { min: 3, title: 'Seed Sower', emoji: '🌱' },
+  { min: 8, title: 'Planter', emoji: '🌿' },
+  { min: 15, title: 'Waterer', emoji: '💧' },
+  { min: 25, title: 'Caretaker', emoji: '🧤' },
+  { min: 40, title: 'Gardener', emoji: '👨‍🌾' },
+  { min: 60, title: 'Cultivator', emoji: '👨‍🔧' },
+  { min: 90, title: 'Botanist', emoji: '🔬' },
+  { min: 130, title: 'Dendrologist', emoji: '🌲' },
+  { min: 180, title: 'Arboriculturalist', emoji: '🌳' },
+  { min: 260, title: 'Sage', emoji: '🧙' },
+  { min: 380, title: 'Lexicographer', emoji: '🏛️' },
+  { min: 540, title: 'Etymologist', emoji: '📜' },
+  { min: 750, title: 'Conservatory Laureate', emoji: '🏅' },
+  { min: 1050, title: 'Keeper of Roots', emoji: '🪵' },
+  { min: 1500, title: 'Grand Arborist', emoji: '👑' },
 ];
 
 export const GROWTH_STAGE_META: Record<

@@ -51,6 +51,7 @@ export interface GardenEntry extends Word {
 export interface RoundEntryResult {
   word: string;
   outcome: RecallOutcome;
+  points?: number;
   isNewWord?: boolean;
   previousStage?: GrowthStage;
   nextStage?: GrowthStage;

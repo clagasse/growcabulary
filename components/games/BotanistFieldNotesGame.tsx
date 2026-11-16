@@ -11,6 +11,15 @@ import {
 import { getFieldNotePassage } from '../../utils/fieldQuotes';
 import { getSafeEtymologyHint } from '../../utils/etymology';
 import {
+  DECAY_WINDOW_SECONDS,
+  LETTER_HINT_PENALTY,
+  NARROW_CHOICES_PENALTY,
+  computeTimeScore,
+  computeWordPoints,
+  getDifficultyScoreMultiplier,
+  getStreakMultiplier,
+} from '../../utils/scoring';
+import {
   CheckCircle2,
   AlertCircle,
   BookOpen,
@@ -27,7 +36,8 @@ import {
 
 interface BotanistFieldNotesGameProps {
   roundWords: Word[];
-  discoveredPool: GardenEntry[];
+  discoveredPool: (GardenEntry | Word)[];
+  isScoredMode?: boolean;
   onRecordOutcome: (word: Word, outcome: RecallOutcome) => RoundEntryResult;
   onCompleteRound: (results: RoundEntryResult[]) => void;
   onSwitchToSeedSprout?: () => void;
@@ -64,6 +74,7 @@ function splitSentenceAroundTarget(
 export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
   roundWords,
   discoveredPool,
+  isScoredMode = false,
   onRecordOutcome,
   onCompleteRound,
   onSwitchToSeedSprout,
@@ -85,6 +96,11 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
   const [wrongAttempts, setWrongAttempts] = useState(0);
   const [isEntryComplete, setIsEntryComplete] = useState(false);
   const [entryOutcome, setEntryOutcome] = useState<RecallOutcome | null>(null);
+  const [roundScore, setRoundScore] = useState(0);
+  const [cleanStreak, setCleanStreak] = useState(0);
+  const [wordElapsedSec, setWordElapsedSec] = useState(0);
+  const [wordPenaltyPts, setWordPenaltyPts] = useState(0);
+  const [lastEarnedPts, setLastEarnedPts] = useState<number | null>(null);
   const [animation, setAnimation] = useState<'wrong' | null>(null);
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error' | 'info';
@@ -101,7 +117,7 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
   const allDiscoveredOptions = useMemo(() => {
     const map = new Map<string, GardenEntry | Word>();
     discoveredPool.forEach((entry) => {
-      if (!entry.isComposted) {
+      if (!(entry as GardenEntry).isComposted) {
         map.set(entry.word.toLowerCase(), entry);
       }
     });
@@ -128,6 +144,9 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
     setWrongAttempts(0);
     setIsEntryComplete(false);
     setEntryOutcome(null);
+    setWordElapsedSec(0);
+    setWordPenaltyPts(0);
+    setLastEarnedPts(null);
     setAnimation(null);
     setFeedback(null);
   }, []);
@@ -135,8 +154,20 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
   useEffect(() => {
     setCurrentIdx(0);
     setRoundResults([]);
+    setRoundScore(0);
+    setCleanStreak(0);
     resetEntryState();
   }, [roundWords, resetEntryState]);
+
+  useEffect(() => {
+    if (!isScoredMode || isEntryComplete || !currentWord) return;
+    const startedAt = Date.now() - wordElapsedSec * 1000;
+    const id = setInterval(() => {
+      const elapsed = Math.min(DECAY_WINDOW_SECONDS, (Date.now() - startedAt) / 1000);
+      setWordElapsedSec(elapsed);
+    }, 200);
+    return () => clearInterval(id);
+  }, [isScoredMode, isEntryComplete, currentWord, currentIdx]);
 
   useEffect(() => {
     resetEntryState();
@@ -218,7 +249,24 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
   const assistedCount = roundResults.filter((r) => r.outcome === 'assisted').length;
 
   const commitOutcome = (outcome: RecallOutcome) => {
-    const result = onRecordOutcome(currentWord, outcome);
+    const baseResult = onRecordOutcome(currentWord, outcome);
+    let earned: number | undefined;
+    if (isScoredMode) {
+      const solved = outcome === 'clean' || outcome === 'assisted';
+      earned = computeWordPoints({
+        elapsedSeconds: wordElapsedSec,
+        penaltyPoints: wordPenaltyPts,
+        wordOrSeed: currentWord,
+        cleanStreak,
+        solved,
+      });
+      setLastEarnedPts(earned);
+      setRoundScore((prev) => prev + (earned || 0));
+      setCleanStreak((prev) => (outcome === 'clean' ? prev + 1 : 0));
+    }
+    const result: RoundEntryResult =
+      earned !== undefined ? { ...baseResult, points: earned } : baseResult;
+
     setRoundResults((prev) => {
       const idx = prev.findIndex(
         (r) => r.word.toLowerCase() === currentWord.word.toLowerCase()
@@ -247,6 +295,7 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
   const handleNarrowOptions = () => {
     if (isEntryComplete || narrowedWords || allDiscoveredOptions.length <= 6) return;
     setUsedAssistedHint(true);
+    setWordPenaltyPts((prev) => prev + NARROW_CHOICES_PENALTY);
     const targetLower = currentWord.word.toLowerCase();
     const distractors = allDiscoveredOptions
       .filter((w) => w.word.toLowerCase() !== targetLower && !triedWords.has(w.word.toLowerCase()))
@@ -319,6 +368,7 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
       });
     } else {
       setWrongAttempts((prev) => prev + 1);
+      setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
       setTriedWords((prev) => {
         const next = new Set(prev);
         next.add(candidateLower);
@@ -423,12 +473,29 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
             {roundWords.length}
           </span>
           <span className="text-[10px] font-bold text-emerald-800 bg-[#EDF5EB] border border-[#C6DEC2] px-2.5 py-1 rounded-full">
-            🌸 Using {allDiscoveredOptions.length} Discovered{' '}
-            {allDiscoveredOptions.length === 1 ? 'Word' : 'Words'}
+            🌸 Using {allDiscoveredOptions.length}{' '}
+            {isScoredMode
+              ? 'Words (Full Lexicon)'
+              : allDiscoveredOptions.length === 1
+              ? 'Discovered Word'
+              : 'Discovered Words'}
           </span>
         </div>
 
         <div className="flex items-center gap-4 journal-subcard px-4 py-2 rounded-2xl">
+          {isScoredMode && (
+            <>
+              <div className="text-center">
+                <p className="text-[9px] font-black uppercase tracking-widest text-amber-700">
+                  Score
+                </p>
+                <p className="serif text-lg sm:text-xl font-black text-amber-900 tabular-nums">
+                  {roundScore}
+                </p>
+              </div>
+              <div className="w-px h-8 bg-[#D0DDD0]" />
+            </>
+          )}
           <div className="text-center">
             <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700">
               Clean
@@ -448,6 +515,43 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
           </div>
         </div>
       </div>
+
+      {isScoredMode && (() => {
+        const meterPct = Math.max(
+          0,
+          Math.min(100, computeTimeScore(wordElapsedSec) - wordPenaltyPts)
+        );
+        const meterBarColor =
+          meterPct > 55 ? 'bg-emerald-600' : meterPct > 25 ? 'bg-amber-500' : 'bg-rose-500';
+        return (
+          <div className="mb-4 p-2.5 px-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 space-y-2 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 font-bold text-amber-950">
+                <span>🏆 Scored</span>
+                {isEntryComplete && lastEarnedPts !== null && (
+                  <span className="px-2 py-0.5 rounded-full bg-white border border-amber-200 text-[11px] tabular-nums">
+                    +{lastEarnedPts} pts earned
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-bold text-amber-900 tabular-nums">
+                <span>{getDifficultyScoreMultiplier(currentWord)}× tier</span>
+                <span>·</span>
+                <span>{getStreakMultiplier(cleanStreak)}× streak</span>
+              </div>
+            </div>
+            <div
+              className="w-full h-2 rounded-full bg-amber-200/70 overflow-hidden"
+              aria-label="Passage score meter"
+            >
+              <div
+                className={`h-full rounded-full transition-all duration-200 ${meterBarColor}`}
+                style={{ width: `${isEntryComplete ? 0 : meterPct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Metadata Pills (Part of Speech & Category of the Missing Word) */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -798,7 +902,10 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
               {hasDistinctSecondExample && !secondExampleUnlocked && (
                 <button
                   type="button"
-                  onClick={() => setSecondExampleUnlocked(true)}
+                  onClick={() => {
+                    setSecondExampleUnlocked(true);
+                    setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFFDF8] hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
                 >
                   <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
@@ -809,7 +916,10 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
               {!etymologyUnlocked && (
                 <button
                   type="button"
-                  onClick={() => setEtymologyUnlocked(true)}
+                  onClick={() => {
+                    setEtymologyUnlocked(true);
+                    setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FCF7EA] hover:bg-amber-100/70 text-amber-900 border border-[#E8D8B5] text-xs font-bold transition-colors"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-700" />
@@ -823,6 +933,7 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
                   onClick={() => {
                     setDefinitionUnlocked(true);
                     setUsedAssistedHint(true);
+                    setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
                   }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFFDF8] hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
                 >

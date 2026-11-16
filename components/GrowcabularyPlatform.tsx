@@ -49,6 +49,20 @@ import { BotanistFieldNotesGame } from './games/BotanistFieldNotesGame';
 import { InYourOwnWordsPlaceholder } from './games/InYourOwnWordsPlaceholder';
 import { WordHintToolbar } from './games/WordHintToolbar';
 import { SecretGardenConservatory } from './garden/SecretGardenConservatory';
+import {
+  DECAY_WINDOW_SECONDS,
+  LETTER_HINT_PENALTY,
+  LETTER_TILES_PENALTY,
+  ScoredRoundRecord,
+  computeTimeScore,
+  computeWordPoints,
+  fetchAndMergeCloudScoredRounds,
+  getDifficultyScoreMultiplier,
+  getStreakMultiplier,
+  pushScoredRoundToSupabase,
+  saveRoundHighScore,
+  saveScoredRoundLocal,
+} from '../utils/scoring';
 import { OnboardingTutorialModal } from './OnboardingTutorialModal';
 import { FeedbackModal, SUPPORT_URL } from './FeedbackModal';
 import { createClient, isSupabaseConfigured, canAccessCurator } from '../utils/supabase/client';
@@ -120,6 +134,16 @@ export const GrowcabularyPlatform: React.FC = () => {
   const [message, setMessage] = useState('');
   const [animation, setAnimation] = useState<'success' | 'failure' | 'wrong' | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
+
+  // Optional Scored Mode state
+  const [isScoredMode, setIsScoredMode] = useState(false);
+  const [roundScore, setRoundScore] = useState(0);
+  const [roundCleanStreak, setRoundCleanStreak] = useState(0);
+  const [wordElapsedSec, setWordElapsedSec] = useState(0);
+  const [wordPenaltyPts, setWordPenaltyPts] = useState(0);
+  const [letterTilesPenalized, setLetterTilesPenalized] = useState(false);
+  const [lastWordPts, setLastWordPts] = useState<number | null>(null);
+  const [isNewBestRound, setIsNewBestRound] = useState(false);
 
   // Persistent Learning & Habit Progress
   const [dailyStreak, setDailyStreak] = useState<number>(0);
@@ -349,6 +373,8 @@ export const GrowcabularyPlatform: React.FC = () => {
           console.warn('Supabase local-to-cloud merge warning:', uploadErr.message);
         }
       }
+
+      fetchAndMergeCloudScoredRounds();
     };
 
     syncWithCloud();
@@ -422,6 +448,13 @@ export const GrowcabularyPlatform: React.FC = () => {
     () => gardenList.filter((g) => g.isComposted).length,
     [gardenList]
   );
+
+  const activeLexiconWords = useMemo(() => {
+    const compostedSet = new Set(
+      gardenList.filter((g) => g.isComposted).map((g) => g.word.toLowerCase())
+    );
+    return RAW_WORDS.filter((w) => !compostedSet.has(w.word.toLowerCase()));
+  }, [gardenList]);
 
   const masteredTotal = useMemo(
     () => activeGardenList.filter((g) => isWordMastered(g)).length,
@@ -590,6 +623,19 @@ export const GrowcabularyPlatform: React.FC = () => {
     }
   }, [focusedIndex, isRoundOver, currentWord, selectedMode, showWelcome]);
 
+  // Scored Mode 20-second decay timer for Seed Sprout
+  useEffect(() => {
+    if (!isScoredMode || selectedMode !== 'seed-sprout' || isRoundOver || showWelcome || !currentWord) {
+      return;
+    }
+    const startedAt = Date.now() - wordElapsedSec * 1000;
+    const id = setInterval(() => {
+      const elapsed = Math.min(DECAY_WINDOW_SECONDS, (Date.now() - startedAt) / 1000);
+      setWordElapsedSec(elapsed);
+    }, 200);
+    return () => clearInterval(id);
+  }, [isScoredMode, selectedMode, isRoundOver, showWelcome, currentWord, currentWordIndex]);
+
   const recordWordOutcome = useCallback(
     (
       wordObj: Word,
@@ -714,6 +760,10 @@ export const GrowcabularyPlatform: React.FC = () => {
     setMessage('');
     setAnimation(null);
     setFocusedIndex(firstOpen);
+    setWordElapsedSec(0);
+    setWordPenaltyPts(0);
+    setLetterTilesPenalized(false);
+    setLastWordPts(null);
   };
 
   const initSeedBank = (
@@ -721,6 +771,9 @@ export const GrowcabularyPlatform: React.FC = () => {
     overrideMode?: GameMode,
     topicOverride?: TopicCategory | 'all'
   ) => {
+    setRoundScore(0);
+    setRoundCleanStreak(0);
+    setIsNewBestRound(false);
     const activeMode = overrideMode || selectedMode;
     const effectiveTopic =
       topicOverride !== undefined
@@ -735,6 +788,33 @@ export const GrowcabularyPlatform: React.FC = () => {
     setSelectedSeed(difficulty);
     setActiveTopicFilter(effectiveTopic);
     setDeckNotice(null);
+
+    if (activeMode === 'field-notes' && isScoredMode) {
+      const scoredPool = activeLexiconWords.filter((w) => {
+        if (difficulty !== 'all' && getWordDifficulty(w) !== difficulty) return false;
+        if (effectiveTopic !== 'all' && getWordTopic(w) !== effectiveTopic) return false;
+        return true;
+      });
+      if (scoredPool.length === 0) {
+        const diffLabel =
+          difficulty === 'all' ? 'All Difficulties' : getDifficultyMeta(difficulty).label;
+        const topicLabel =
+          effectiveTopic === 'all' ? 'All Topics' : getTopicMeta(effectiveTopic).label;
+        setDeckNotice(
+          `No words match "${diffLabel} · ${topicLabel}" yet. Try selecting All Topics or All Difficulties.`
+        );
+        setShowWelcome(true);
+        return;
+      }
+
+      const shuffled = [...scoredPool].sort(() => Math.random() - 0.5);
+      const chosen = shuffled.slice(0, Math.min(WORDS_PER_ROUND, shuffled.length));
+      setRemainingWords(chosen);
+      setCurrentWordIndex(0);
+      setRoundResults([]);
+      setShowWelcome(false);
+      return;
+    }
 
     if (activeMode === 'field-notes' || activeMode === 'own-words') {
       const modeName = activeMode === 'own-words' ? 'In Your Own Words' : 'Field Notes';
@@ -841,12 +921,14 @@ export const GrowcabularyPlatform: React.FC = () => {
 
   const launchDiscoveredRound = (targetMode: 'field-notes' | 'own-words') => {
     const diffCheck = selectedSeed || 'all';
-    const hasDiscoveredInCurrent = activeGardenList.some(
+    const pool =
+      targetMode === 'field-notes' && isScoredMode ? activeLexiconWords : activeGardenList;
+    const hasMatchInCurrent = pool.some(
       (g) =>
         (diffCheck === 'all' || getWordDifficulty(g) === diffCheck) &&
         (activeTopicFilter === 'all' || getWordTopic(g) === activeTopicFilter)
     );
-    if (hasDiscoveredInCurrent) {
+    if (hasMatchInCurrent) {
       initSeedBank(diffCheck, targetMode, activeTopicFilter);
     } else {
       initSeedBank('all', targetMode, 'all');
@@ -887,7 +969,24 @@ export const GrowcabularyPlatform: React.FC = () => {
 
   const commitSeedSproutOutcome = (outcome: RecallOutcome) => {
     if (!currentWord) return;
-    const result = recordWordOutcome(currentWord, outcome, 'seed-sprout');
+    const baseResult = recordWordOutcome(currentWord, outcome, 'seed-sprout');
+    let earned: number | undefined;
+    if (isScoredMode) {
+      const solved = outcome === 'clean' || outcome === 'assisted';
+      earned = computeWordPoints({
+        elapsedSeconds: wordElapsedSec,
+        penaltyPoints: wordPenaltyPts,
+        wordOrSeed: currentWord,
+        cleanStreak: roundCleanStreak,
+        solved,
+      });
+      setLastWordPts(earned);
+      setRoundScore((prev) => prev + (earned || 0));
+      setRoundCleanStreak((prev) => (outcome === 'clean' ? prev + 1 : 0));
+    }
+    const result: RoundEntryResult =
+      earned !== undefined ? { ...baseResult, points: earned } : baseResult;
+
     setRoundResults((prev) => {
       const idx = prev.findIndex(
         (r) => r.word.toLowerCase() === currentWord.word.toLowerCase()
@@ -916,6 +1015,7 @@ export const GrowcabularyPlatform: React.FC = () => {
   ) => {
     if (!currentWord || isRoundOver) return;
     setUsedAssistedHint(true);
+    setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
     const nextSet = new Set(revealedIndices);
 
     if (kind === 'letter') {
@@ -996,6 +1096,7 @@ export const GrowcabularyPlatform: React.FC = () => {
       handleSuccess();
     } else {
       setWrongGuesses((prev) => prev + 1);
+      setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
       setMessage('Not quite — try Letter Tiles, First & Last, or another hint below.');
       setAnimation('wrong');
       setTimeout(() => setAnimation(null), 500);
@@ -1004,6 +1105,33 @@ export const GrowcabularyPlatform: React.FC = () => {
 
   const finishRoundWithResults = (results: RoundEntryResult[]) => {
     setRoundResults(results);
+    if (isScoredMode && (selectedMode === 'seed-sprout' || selectedMode === 'field-notes')) {
+      const totalPts = results.reduce((sum, r) => sum + (r.points || 0), 0);
+      setRoundScore(totalPts);
+      const scoreKey = `${selectedMode}::${selectedSeed || 'all'}`;
+      const { isNewBest } = saveRoundHighScore(scoreKey, totalPts);
+      setIsNewBestRound(isNewBest);
+
+      const roundRecord: ScoredRoundRecord = {
+        id:
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : '00000000-0000-4000-8000-' + Date.now().toString().padStart(12, '0').slice(-12),
+        game_mode: selectedMode,
+        difficulty: selectedSeed || 'all',
+        topic: activeTopicFilter || 'all',
+        score: totalPts,
+        words_count: results.length,
+        clean_count: results.filter((r) => r.outcome === 'clean').length,
+        assisted_count: results.filter((r) => r.outcome === 'assisted').length,
+        missed_count: results.filter((r) => r.outcome === 'missed').length,
+        created_at: new Date().toISOString(),
+      };
+      saveScoredRoundLocal(roundRecord);
+      pushScoredRoundToSupabase(roundRecord);
+    } else {
+      setIsNewBestRound(false);
+    }
     setShowRoundResult(true);
   };
 
@@ -1109,12 +1237,18 @@ export const GrowcabularyPlatform: React.FC = () => {
             {/* Top Bar: Rank, Mastery & Cloud Account Link */}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-6 pb-4 border-b border-[#E5ECE0]">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-emerald-700">
-                  Rank:
-                </span>
-                <span className="bg-emerald-800 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                  {userRank.emoji} {userRank.title}
-                </span>
+                <Link
+                  href="/ranks"
+                  className="inline-flex items-center gap-2 group"
+                  title="View all Botanical Ranks and your overall progression"
+                >
+                  <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-emerald-700 group-hover:text-emerald-950 transition-colors">
+                    Rank:
+                  </span>
+                  <span className="bg-emerald-800 group-hover:bg-emerald-900 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm transition-colors">
+                    {userRank.emoji} {userRank.title}
+                  </span>
+                </Link>
                 <span className="bg-[#EDF5EB] text-emerald-900 border border-[#C6DEC2] text-xs font-bold px-2.5 py-0.5 rounded-full">
                   🌳 {masteredTotal} Mastered
                 </span>
@@ -1203,6 +1337,44 @@ export const GrowcabularyPlatform: React.FC = () => {
                 </button>
               </div>
             )}
+
+            {/* Optional Scoring Mode Toggle */}
+            <div className="mb-5 p-3 sm:p-3.5 rounded-2xl bg-[#FAF7EE] border border-[#DCE5D5] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <p className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                  <span>{isScoredMode ? '🏆 Scored Challenge Active' : '🌿 Zen Mode (Untimed)'}</span>
+                </p>
+                <p className="text-[11px] text-emerald-800">
+                  {isScoredMode
+                    ? '100 pts/word decaying over 30s · 1.5× Meadow / 2× Conservatory · clean streak bonus · -10 hint / -30 tiles'
+                    : 'Play at your own pace, or switch on Scored Mode to chase high scores in Seed Sprout & Field Notes.'}
+                </p>
+              </div>
+              <div className="inline-flex items-center bg-[#EDF5EB] p-1 rounded-full border border-[#C6DEC2] shrink-0 self-start sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => setIsScoredMode(false)}
+                  className={`px-3 py-1 rounded-full text-[11px] font-black transition-all ${
+                    !isScoredMode
+                      ? 'bg-emerald-800 text-white shadow-sm'
+                      : 'text-emerald-900 hover:bg-emerald-100/70'
+                  }`}
+                >
+                  🌿 Zen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsScoredMode(true)}
+                  className={`px-3 py-1 rounded-full text-[11px] font-black transition-all ${
+                    isScoredMode
+                      ? 'bg-amber-700 text-white shadow-sm'
+                      : 'text-emerald-900 hover:bg-amber-100/60'
+                  }`}
+                >
+                  🏆 Scored
+                </button>
+              </div>
+            </div>
 
             {/* PRIMARY FEATURE SECTION: SEED SPROUT (DISCOVER NEW WORDS) */}
             <div className="mb-7 p-5 sm:p-7 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#F2F7EE] via-[#F7FAF4] to-[#EDF5EB] border-2 border-emerald-700/30 shadow-md">
@@ -1369,89 +1541,98 @@ export const GrowcabularyPlatform: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {/* Subordinate Mode 1: Field Notes */}
-                <div className="p-4 rounded-xl bg-[#FFFDF8] border border-[#DCE5D5] flex flex-col justify-between gap-3">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h4 className="serif font-bold text-sm sm:text-base text-emerald-950 flex items-center gap-1.5">
-                        <span>✍️ Field Notes</span>
-                      </h4>
-                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
-                        Usage in Context
-                      </span>
+                {(() => {
+                  const fieldNotesSourcePool: Word[] = isScoredMode
+                    ? activeLexiconWords
+                    : activeGardenList;
+                  return (
+                    <div className="p-4 rounded-xl bg-[#FFFDF8] border border-[#DCE5D5] flex flex-col justify-between gap-3">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <h4 className="serif font-bold text-sm sm:text-base text-emerald-950 flex items-center gap-1.5">
+                            <span>✍️ Field Notes</span>
+                          </h4>
+                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                            {isScoredMode ? 'Full Lexicon' : 'Usage in Context'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-emerald-800 leading-relaxed">
+                          {isScoredMode
+                            ? 'Read a real-life quote or example and choose the matching word from the full curated lexicon.'
+                            : 'Read a real-life quote or field note example and choose which of your discovered words fits the blank.'}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#EBF0E6]">
+                        <select
+                          value={fieldNotesDeckFilter}
+                          onChange={(e) =>
+                            setFieldNotesDeckFilter(e.target.value as DifficultyTier | 'all')
+                          }
+                          aria-label="Filter Field Notes by difficulty"
+                          className="flex-1 min-w-[125px] px-2.5 py-1.5 rounded-lg bg-[#FAF7EE] border border-[#DCE5D5] text-[11px] font-bold text-emerald-900 outline-none"
+                        >
+                          <option value="all">
+                            All Difficulties ({fieldNotesSourcePool.length})
+                          </option>
+                          {WORD_BANKS.map((b) => {
+                            const count = fieldNotesSourcePool.filter(
+                              (g) =>
+                                getWordDifficulty(g) === b.type &&
+                                (fieldNotesTopicFilter === 'all' ||
+                                  getWordTopic(g) === fieldNotesTopicFilter)
+                            ).length;
+                            if (count === 0) return null;
+                            return (
+                              <option key={b.type} value={b.type}>
+                                {b.emoji} {b.label} ({count})
+                              </option>
+                            );
+                          })}
+                        </select>
+
+                        <select
+                          value={fieldNotesTopicFilter}
+                          onChange={(e) =>
+                            setFieldNotesTopicFilter(e.target.value as TopicCategory | 'all')
+                          }
+                          aria-label="Filter Field Notes by topic"
+                          className="flex-1 min-w-[125px] px-2.5 py-1.5 rounded-lg bg-[#FAF7EE] border border-[#DCE5D5] text-[11px] font-bold text-emerald-900 outline-none"
+                        >
+                          <option value="all">All Topics ({fieldNotesSourcePool.length})</option>
+                          {TOPIC_CATEGORIES.map((tc) => {
+                            const count = fieldNotesSourcePool.filter(
+                              (g) =>
+                                getWordTopic(g) === tc.type &&
+                                (fieldNotesDeckFilter === 'all' ||
+                                  getWordDifficulty(g) === fieldNotesDeckFilter)
+                            ).length;
+                            if (count === 0) return null;
+                            return (
+                              <option key={tc.type} value={tc.type}>
+                                {tc.emoji} {tc.label} ({count})
+                              </option>
+                            );
+                          })}
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            initSeedBank(
+                              fieldNotesDeckFilter,
+                              'field-notes',
+                              fieldNotesTopicFilter
+                            )
+                          }
+                          className="px-4 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-black uppercase tracking-wider transition-all shadow-sm"
+                        >
+                          Play Field Notes →
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs text-emerald-800 leading-relaxed">
-                      Read a real-life quote or field note example and choose which of your discovered words fits the blank.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#EBF0E6]">
-                    <select
-                      value={fieldNotesDeckFilter}
-                      onChange={(e) =>
-                        setFieldNotesDeckFilter(e.target.value as DifficultyTier | 'all')
-                      }
-                      aria-label="Filter Field Notes by difficulty"
-                      className="flex-1 min-w-[125px] px-2.5 py-1.5 rounded-lg bg-[#FAF7EE] border border-[#DCE5D5] text-[11px] font-bold text-emerald-900 outline-none"
-                    >
-                      <option value="all">
-                        All Difficulties ({activeGardenList.length})
-                      </option>
-                      {WORD_BANKS.map((b) => {
-                        const count = activeGardenList.filter(
-                          (g) =>
-                            getWordDifficulty(g) === b.type &&
-                            (fieldNotesTopicFilter === 'all' ||
-                              getWordTopic(g) === fieldNotesTopicFilter)
-                        ).length;
-                        if (count === 0) return null;
-                        return (
-                          <option key={b.type} value={b.type}>
-                            {b.emoji} {b.label} ({count})
-                          </option>
-                        );
-                      })}
-                    </select>
-
-                    <select
-                      value={fieldNotesTopicFilter}
-                      onChange={(e) =>
-                        setFieldNotesTopicFilter(e.target.value as TopicCategory | 'all')
-                      }
-                      aria-label="Filter Field Notes by topic"
-                      className="flex-1 min-w-[125px] px-2.5 py-1.5 rounded-lg bg-[#FAF7EE] border border-[#DCE5D5] text-[11px] font-bold text-emerald-900 outline-none"
-                    >
-                      <option value="all">All Topics ({activeGardenList.length})</option>
-                      {TOPIC_CATEGORIES.map((tc) => {
-                        const count = activeGardenList.filter(
-                          (g) =>
-                            getWordTopic(g) === tc.type &&
-                            (fieldNotesDeckFilter === 'all' ||
-                              getWordDifficulty(g) === fieldNotesDeckFilter)
-                        ).length;
-                        if (count === 0) return null;
-                        return (
-                          <option key={tc.type} value={tc.type}>
-                            {tc.emoji} {tc.label} ({count})
-                          </option>
-                        );
-                      })}
-                    </select>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        initSeedBank(
-                          fieldNotesDeckFilter,
-                          'field-notes',
-                          fieldNotesTopicFilter
-                        )
-                      }
-                      className="px-4 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-black uppercase tracking-wider transition-all shadow-sm"
-                    >
-                      Play Field Notes →
-                    </button>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* Subordinate Mode 2: In Your Own Words */}
                 <div className="p-4 rounded-xl bg-[#FFFDF8] border border-[#DCE5D5] flex flex-col justify-between gap-3">
@@ -1686,7 +1867,8 @@ export const GrowcabularyPlatform: React.FC = () => {
             ) : selectedMode === 'field-notes' ? (
               <BotanistFieldNotesGame
                 roundWords={remainingWords}
-                discoveredPool={activeGardenList}
+                discoveredPool={isScoredMode ? activeLexiconWords : activeGardenList}
+                isScoredMode={isScoredMode}
                 onRecordOutcome={(wordObj, outcome) =>
                   recordWordOutcome(wordObj, outcome, 'field-notes')
                 }
@@ -1751,6 +1933,47 @@ export const GrowcabularyPlatform: React.FC = () => {
                     </span>
                   </div>
                 </div>
+
+                {isScoredMode && (() => {
+                  const meterPct = Math.max(
+                    0,
+                    Math.min(100, computeTimeScore(wordElapsedSec) - wordPenaltyPts)
+                  );
+                  const meterBarColor =
+                    meterPct > 55
+                      ? 'bg-emerald-600'
+                      : meterPct > 25
+                      ? 'bg-amber-500'
+                      : 'bg-rose-500';
+                  return (
+                    <div className="mb-5 p-2.5 px-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 space-y-2 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2 font-bold text-amber-950">
+                          <span>🏆 Round: {roundScore} pts</span>
+                          {isRoundOver && lastWordPts !== null && (
+                            <span className="px-2 py-0.5 rounded-full bg-white border border-amber-200 text-[11px] tabular-nums">
+                              +{lastWordPts} pts earned
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] font-bold text-amber-900 tabular-nums">
+                          <span>{getDifficultyScoreMultiplier(currentWord)}× tier</span>
+                          <span>·</span>
+                          <span>{getStreakMultiplier(roundCleanStreak)}× streak</span>
+                        </div>
+                      </div>
+                      <div
+                        className="w-full h-2 rounded-full bg-amber-200/70 overflow-hidden"
+                        aria-label="Word score meter"
+                      >
+                        <div
+                          className={`h-full rounded-full transition-all duration-200 ${meterBarColor}`}
+                          style={{ width: `${isRoundOver ? 0 : meterPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Individual Letter Tiles */}
                 <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 mb-7">
@@ -1860,12 +2083,19 @@ export const GrowcabularyPlatform: React.FC = () => {
                       isComplete={isRoundOver}
                       showDefinitionOption={false}
                       etymologyUnlocked={hintUnlocked}
-                      onUnlockEtymology={() => setHintUnlocked(true)}
+                      onUnlockEtymology={() => {
+                        setHintUnlocked(true);
+                        setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
+                      }}
                       onRevealIndices={handleSeedSproutRevealIndices}
                       letterBankActive={letterBankActive}
                       onToggleLetterBank={() => {
                         setLetterBankActive((prev) => !prev);
                         setUsedAssistedHint(true);
+                        if (!letterTilesPenalized) {
+                          setLetterTilesPenalized(true);
+                          setWordPenaltyPts((prev) => prev + LETTER_TILES_PENALTY);
+                        }
                       }}
                       onPickLetterFromBank={(ch) => {
                         const { nextGuess, nextFocus } = placeCharFromTileBank(
@@ -2225,6 +2455,13 @@ export const GrowcabularyPlatform: React.FC = () => {
                     <span>🏠 Main Dashboard</span>
                   </button>
                   <Link
+                    href="/ranks"
+                    onClick={() => setShowMenu(false)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F7F9F4] rounded-xl hover:bg-[#ECF4E8] transition-colors text-emerald-900 font-bold border border-[#DCE6D6] text-xs"
+                  >
+                    <span>{userRank.emoji} Botanical Ranks &amp; Progress</span>
+                  </Link>
+                  <Link
                     href="/help"
                     onClick={() => setShowMenu(false)}
                     className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F7F9F4] rounded-xl hover:bg-[#ECF4E8] transition-colors text-emerald-900 font-bold border border-[#DCE6D6] text-xs"
@@ -2354,6 +2591,21 @@ export const GrowcabularyPlatform: React.FC = () => {
                     : ''}
                 </span>
               </p>
+              {isScoredMode && (selectedMode === 'seed-sprout' || selectedMode === 'field-notes') && (
+                <div className="mt-3 inline-flex flex-wrap items-center justify-center gap-2 px-4 py-2 rounded-2xl bg-amber-50 border border-amber-200">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-800">
+                    🏆 Round Score:
+                  </span>
+                  <span className="serif text-2xl font-black text-amber-950 tabular-nums">
+                    {roundScore} pts
+                  </span>
+                  {isNewBestRound && (
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-300 text-amber-950">
+                      New Personal Best!
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Breakdown Counters */}
@@ -2410,6 +2662,11 @@ export const GrowcabularyPlatform: React.FC = () => {
                             <span className="serif font-bold text-emerald-950 truncate">
                               {res.word}
                             </span>
+                            {typeof res.points === 'number' && (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 tabular-nums">
+                                +{res.points} pts
+                              </span>
+                            )}
                             {isCurrentlyComposted ? (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-700">
                                 🍂 Compost
