@@ -83,7 +83,7 @@ export const GROWTH_STAGE_META: Record<
     label: 'In Bloom',
     emoji: '🌸',
     minReps: 4,
-    description: 'Thriving across multiple vocabulary contexts.',
+    description: 'Thriving across multiple contexts.',
     badgeClass: 'bg-pink-100 text-pink-800 border-pink-200',
   },
   perennial: {
@@ -168,45 +168,45 @@ export const NICHE_BANKS: {
 }[] = [
   {
     type: 'emotions',
-    label: 'Psyche & Emotions',
+    label: 'Psyche, Character & Behavior',
     emoji: '🎭',
     description:
-      'Nuanced states of mind, emotional depth, character temperaments, and human psychology.',
+      'States of mind, emotional depth, personality traits, manners, virtues, and human behavior.',
   },
   {
     type: 'philosophy',
-    label: 'Philosophy & Rhetoric',
+    label: 'Mind, Ideas & Philosophy',
     emoji: '🏛️',
     description:
-      'Enduring concepts from ethics, logic, persuasion, debate, and the search for meaning.',
+      'Cognition, logic, knowledge, mystery, ethics, belief, and abstract concepts.',
   },
   {
     type: 'biology',
-    label: 'Natural World & Ecology',
+    label: 'Nature, Body & Ecology',
     emoji: '🌿',
     description:
-      'Evocative terms from botany, ecology, landscapes, and living systems that enrich both science and metaphor.',
+      'Living systems, anatomy, physical traits, landscapes, weather, and natural forces.',
   },
   {
     type: 'architecture',
-    label: 'Art, Design & Architecture',
+    label: 'Art, Design & Sensory Form',
     emoji: '🎨',
     description:
-      'Aesthetic movements, spatial design, visual craft, and architectural marvels.',
+      'Visual craft, spatial structure, texture, light, aesthetics, and sensory qualities.',
   },
   {
     type: 'statecraft',
-    label: 'Society, Law & Statecraft',
+    label: 'History, Society & Power',
     emoji: '⚖️',
     description:
-      'High-utility terms from diplomacy, governance, history, jurisprudence, and social dynamics.',
+      'Diplomacy, governance, historical eras, social groups, law, and conflict.',
   },
   {
     type: 'literature',
-    label: 'Literature & Poetics',
+    label: 'Language, Speech & Literature',
     emoji: '📜',
     description:
-      'Expressive vocabulary for narrative craft, poetic devices, irony, and literary criticism.',
+      'Narrative craft, tone, persuasion, wit, praise, critique, and linguistic expression.',
   },
 ];
 
@@ -217,7 +217,43 @@ export interface CategoryMeta {
   description: string;
   group: 'difficulty' | 'topic';
   badgeClass: string;
+  accentBarClass?: string;
+  cardTintClass?: string;
 }
+
+const TOPIC_ACCENT_CLASSES: Record<
+  TopicCategory,
+  { accentBarClass: string; cardTintClass: string }
+> = {
+  general: {
+    accentBarClass: 'bg-emerald-600/65',
+    cardTintClass: 'from-[#F4FAF1]/70 via-[#FFFDF8] to-[#FFFDF8]',
+  },
+  emotions: {
+    accentBarClass: 'bg-rose-400/80',
+    cardTintClass: 'from-rose-50/55 via-[#FFFDF8] to-[#FFFDF8]',
+  },
+  philosophy: {
+    accentBarClass: 'bg-amber-500/80',
+    cardTintClass: 'from-amber-50/55 via-[#FFFDF8] to-[#FFFDF8]',
+  },
+  biology: {
+    accentBarClass: 'bg-lime-600/75',
+    cardTintClass: 'from-lime-50/55 via-[#FFFDF8] to-[#FFFDF8]',
+  },
+  architecture: {
+    accentBarClass: 'bg-orange-400/80',
+    cardTintClass: 'from-orange-50/55 via-[#FFFDF8] to-[#FFFDF8]',
+  },
+  statecraft: {
+    accentBarClass: 'bg-slate-500/75',
+    cardTintClass: 'from-slate-100/60 via-[#FFFDF8] to-[#FFFDF8]',
+  },
+  literature: {
+    accentBarClass: 'bg-purple-500/75',
+    cardTintClass: 'from-purple-50/55 via-[#FFFDF8] to-[#FFFDF8]',
+  },
+};
 
 const CATEGORY_BADGE_CLASSES: Record<SeedType | TopicCategory, string> = {
   garden: 'bg-[#E8F4E6] text-emerald-900 border-[#BBD9B7]',
@@ -238,18 +274,22 @@ export const TOPIC_CATEGORIES: {
   emoji: string;
   description: string;
   badgeClass: string;
+  accentBarClass: string;
+  cardTintClass: string;
 }[] = [
   ...NICHE_BANKS.map((b) => ({
     ...b,
     badgeClass: CATEGORY_BADGE_CLASSES[b.type],
+    ...TOPIC_ACCENT_CLASSES[b.type],
   })),
   {
     type: 'general',
     label: 'General',
     emoji: '🌾',
     description:
-      'Versatile, expressive vocabulary for everyday, descriptive, and cross-disciplinary use.',
+      'Versatile, expressive words for everyday, descriptive, and cross-disciplinary use.',
     badgeClass: CATEGORY_BADGE_CLASSES.general,
+    ...TOPIC_ACCENT_CLASSES.general,
   },
 ];
 

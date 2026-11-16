@@ -49,6 +49,8 @@ import { BotanistFieldNotesGame } from './games/BotanistFieldNotesGame';
 import { InYourOwnWordsPlaceholder } from './games/InYourOwnWordsPlaceholder';
 import { WordHintToolbar } from './games/WordHintToolbar';
 import { SecretGardenConservatory } from './garden/SecretGardenConservatory';
+import { OnboardingTutorialModal } from './OnboardingTutorialModal';
+import { FeedbackModal, SUPPORT_URL } from './FeedbackModal';
 import { createClient, isSupabaseConfigured, canAccessCurator } from '../utils/supabase/client';
 import {
   Droplets,
@@ -59,6 +61,9 @@ import {
   Archive,
   Undo2,
   CheckCircle2,
+  HelpCircle,
+  MessageSquare,
+  Coffee,
 } from 'lucide-react';
 
 function getLocalDateKey(date: Date = new Date()): string {
@@ -125,6 +130,8 @@ export const GrowcabularyPlatform: React.FC = () => {
 
   // UI & Modals
   const [showWelcome, setShowWelcome] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showGarden, setShowGarden] = useState(false);
   const [conservatoryInitialMode, setConservatoryInitialMode] = useState<'grid' | 'flashcards'>('grid');
@@ -177,11 +184,18 @@ export const GrowcabularyPlatform: React.FC = () => {
       if (savedPlayed) setPlayedWords(JSON.parse(savedPlayed));
 
       const savedGarden = localStorage.getItem('growcabulary_garden');
+      let hasSavedWords = false;
       if (savedGarden) {
         const parsedGarden = JSON.parse(savedGarden);
         if (Array.isArray(parsedGarden)) {
+          hasSavedWords = parsedGarden.length > 0;
           setGardenList(parsedGarden.map((item) => normalizeGardenEntry(item)));
         }
+      }
+
+      const seenTutorial = localStorage.getItem('growcabulary_tutorial_seen') === 'true';
+      if (!seenTutorial && !hasSavedWords) {
+        setShowTutorial(true);
       }
     } catch (e) {
       console.error('Error hydrating local storage:', e);
@@ -847,6 +861,20 @@ export const GrowcabularyPlatform: React.FC = () => {
     initSeedBank(selectedSeed || 'garden', modeId, activeTopicFilter);
   };
 
+  const dismissTutorial = () => {
+    setShowTutorial(false);
+    try {
+      localStorage.setItem('growcabulary_tutorial_seen', 'true');
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  const handleStartFromTutorial = () => {
+    dismissTutorial();
+    initSeedBank('garden', 'seed-sprout', 'all');
+  };
+
   const openConservatoryGrid = () => {
     setConservatoryInitialMode('grid');
     setShowGarden(true);
@@ -1115,6 +1143,15 @@ export const GrowcabularyPlatform: React.FC = () => {
                   <Flower2 className="w-3.5 h-3.5 text-emerald-700" />
                   <span>Garden ({activeGardenList.length})</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowMenu(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FAF7EE] hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
+                  aria-label="Open Settings"
+                >
+                  <Settings className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Settings</span>
+                </button>
                 {cloudUser ? (
                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-900 text-white text-xs font-bold shadow-sm">
                     <UserCheck className="w-3.5 h-3.5 text-emerald-300" />
@@ -1150,7 +1187,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                 🌿 Growcabulary
               </h1>
               <p className="serif text-xs sm:text-base text-emerald-800 italic px-4">
-                Build your vocabulary, master words in context, and explore word origins
+                Build your lexicon, master words in context, and explore word origins
               </p>
             </div>
 
@@ -1171,11 +1208,6 @@ export const GrowcabularyPlatform: React.FC = () => {
             <div className="mb-7 p-5 sm:p-7 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#F2F7EE] via-[#F7FAF4] to-[#EDF5EB] border-2 border-emerald-700/30 shadow-md">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-5 pb-4 border-b border-[#D5E3D0]">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-800 text-white shadow-sm">
-                      Primary Mode • Discover Words
-                    </span>
-                  </div>
                   <h2 className="serif text-2xl sm:text-3xl font-bold text-emerald-950 flex items-center gap-2">
                     <span>🌱 Seed Sprout</span>
                   </h2>
@@ -1198,60 +1230,57 @@ export const GrowcabularyPlatform: React.FC = () => {
               {(() => {
                 const selectedTopicMeta =
                   seedSproutTopicFilter === 'all' ? null : getTopicMeta(seedSproutTopicFilter);
-                const selectedTopicStat = topicStats[seedSproutTopicFilter];
                 return (
-                  <div className="mb-4 p-3 sm:p-3.5 rounded-2xl bg-[#FCF7EA] border border-[#E6D7B6] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 flex-1 min-w-0">
-                      <label
-                        htmlFor="seed-sprout-topic-select"
-                        className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-900 shrink-0 flex items-center gap-1.5"
-                      >
-                        <span>📚 Topic Filter:</span>
-                      </label>
-                      <select
-                        id="seed-sprout-topic-select"
-                        value={seedSproutTopicFilter}
-                        onChange={(e) =>
-                          setSeedSproutTopicFilter(e.target.value as TopicCategory | 'all')
-                        }
-                        className="px-3 py-1.5 rounded-xl bg-[#FFFDF8] border border-[#DFCCA4] text-xs sm:text-sm font-bold text-amber-950 focus:border-amber-600 outline-none"
-                      >
-                        <option value="all">
-                          All Topics ({topicStats.all.mastered}/{topicStats.all.activeTotal}{' '}
-                          Mastered · {topicStats.all.unseen} New)
-                        </option>
-                        {TOPIC_CATEGORIES.map((tc) => {
-                          const ts = topicStats[tc.type];
-                          return (
-                            <option key={tc.type} value={tc.type}>
-                              {tc.emoji} {tc.label} ({ts.mastered}/{ts.activeTotal} Mastered ·{' '}
-                              {ts.unseen} New)
-                            </option>
-                          );
-                        })}
-                      </select>
-                      {selectedTopicMeta && (
-                        <span className="text-[11px] text-amber-800 truncate hidden lg:inline">
-                          {selectedTopicMeta.description}
-                        </span>
-                      )}
-                    </div>
+                  <div className="mb-4 p-3 sm:p-3.5 rounded-2xl bg-[#FCF7EA] border border-[#E6D7B6] space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+                        <label
+                          htmlFor="seed-sprout-topic-select"
+                          className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-900 shrink-0 flex items-center gap-1.5"
+                        >
+                          <span>📚 Topic Filter:</span>
+                        </label>
+                        <select
+                          id="seed-sprout-topic-select"
+                          value={seedSproutTopicFilter}
+                          onChange={(e) =>
+                            setSeedSproutTopicFilter(e.target.value as TopicCategory | 'all')
+                          }
+                          className="w-full sm:w-auto max-w-full min-w-0 px-3 py-1.5 rounded-xl bg-[#FFFDF8] border border-[#DFCCA4] text-xs sm:text-sm font-bold text-amber-950 focus:border-amber-600 outline-none truncate"
+                        >
+                          <option value="all">
+                            All Topics ({topicStats.all.mastered}/{topicStats.all.activeTotal}{' '}
+                            Mastered · {topicStats.all.unseen} New)
+                          </option>
+                          {TOPIC_CATEGORIES.map((tc) => {
+                            const ts = topicStats[tc.type];
+                            return (
+                              <option key={tc.type} value={tc.type}>
+                                {tc.emoji} {tc.label} ({ts.mastered}/{ts.activeTotal} Mastered ·{' '}
+                                {ts.unseen} New)
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
 
-                    {selectedTopicMeta && (
-                      <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
-                        <span className="text-[10px] font-bold text-amber-900 bg-amber-100/80 px-2.5 py-1 rounded-full">
-                          {selectedTopicStat.activeTotal} words in topic
-                        </span>
+                      {selectedTopicMeta && (
                         <button
                           type="button"
                           onClick={() =>
                             initSeedBank('all', 'seed-sprout', seedSproutTopicFilter)
                           }
-                          className="px-3.5 py-1.5 rounded-xl bg-amber-800 hover:bg-amber-900 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all"
+                          className="px-3.5 py-1.5 rounded-xl bg-amber-800 hover:bg-amber-900 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all whitespace-nowrap shrink-0"
                         >
                           Play All {selectedTopicMeta.label} →
                         </button>
-                      </div>
+                      )}
+                    </div>
+
+                    {selectedTopicMeta && (
+                      <p className="text-[11px] text-amber-800 leading-snug">
+                        {selectedTopicMeta.description}
+                      </p>
                     )}
                   </div>
                 );
@@ -1512,7 +1541,7 @@ export const GrowcabularyPlatform: React.FC = () => {
             </div>
 
             {/* Garden CTA */}
-            <div className="flex justify-center mb-2">
+            <div className="flex flex-col items-center gap-3 mb-2">
               <button
                 type="button"
                 onClick={openConservatoryGrid}
@@ -1524,6 +1553,29 @@ export const GrowcabularyPlatform: React.FC = () => {
                 </span>{' '}
                 🌸
               </button>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowFeedback(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FAF7EE] hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Send Feedback</span>
+                </button>
+
+                {SUPPORT_URL && (
+                  <a
+                    href={SUPPORT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition-colors"
+                  >
+                    <Coffee className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Support the Developer</span>
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1579,6 +1631,14 @@ export const GrowcabularyPlatform: React.FC = () => {
                 >
                   Garden 🌸
                 </button>
+                <Link
+                  href="/help"
+                  className="p-2 text-emerald-800 hover:bg-[#F4F7F0] rounded-full transition-colors"
+                  aria-label="Help & Instructions"
+                  title="Help & Instructions"
+                >
+                  <HelpCircle className="w-5 h-5" />
+                </Link>
                 <button
                   type="button"
                   onClick={() => setShowMenu(true)}
@@ -1656,7 +1716,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                       return (
                         <>
                           <span
-                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${diffMeta.badgeClass}`}
+                            className={`specimen-stamp text-[10px] px-2.5 py-0.5 ${diffMeta.badgeClass}`}
                           >
                             {diffMeta.emoji} {diffMeta.label}
                           </span>
@@ -1932,7 +1992,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                       return (
                         <>
                           <span
-                            className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${diffMeta.badgeClass}`}
+                            className={`specimen-stamp text-[10px] px-2.5 py-0.5 ${diffMeta.badgeClass}`}
                           >
                             {diffMeta.emoji} {diffMeta.label}
                           </span>
@@ -2152,17 +2212,60 @@ export const GrowcabularyPlatform: React.FC = () => {
                 <h3 className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-2.5 border-b border-[#E5ECE0] pb-1">
                   Navigation
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowMenu(false);
-                    setShowWelcome(true);
-                    setSelectedSeed(null);
-                  }}
-                  className="w-full flex items-center justify-center gap-3 py-3 bg-[#F7F9F4] rounded-xl hover:bg-[#ECF4E8] transition-colors text-emerald-900 font-bold border border-[#DCE6D6]"
-                >
-                  <span>🏠 Main Dashboard</span>
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowWelcome(true);
+                      setSelectedSeed(null);
+                    }}
+                    className="w-full flex items-center justify-center gap-3 py-3 bg-[#F7F9F4] rounded-xl hover:bg-[#ECF4E8] transition-colors text-emerald-900 font-bold border border-[#DCE6D6]"
+                  >
+                    <span>🏠 Main Dashboard</span>
+                  </button>
+                  <Link
+                    href="/help"
+                    onClick={() => setShowMenu(false)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F7F9F4] rounded-xl hover:bg-[#ECF4E8] transition-colors text-emerald-900 font-bold border border-[#DCE6D6] text-xs"
+                  >
+                    <HelpCircle className="w-4 h-4 text-emerald-700" />
+                    <span>Help &amp; Instructions</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowTutorial(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F7F9F4] rounded-xl hover:bg-[#ECF4E8] transition-colors text-emerald-900 font-bold border border-[#DCE6D6] text-xs"
+                  >
+                    <span>🧭 Replay Intro Tutorial</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowFeedback(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F7F9F4] rounded-xl hover:bg-[#ECF4E8] transition-colors text-emerald-900 font-bold border border-[#DCE6D6] text-xs"
+                  >
+                    <MessageSquare className="w-4 h-4 text-emerald-700" />
+                    <span>Send Feedback</span>
+                  </button>
+                  {SUPPORT_URL && (
+                    <a
+                      href={SUPPORT_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowMenu(false)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-50 rounded-xl hover:bg-amber-100 transition-colors text-amber-900 font-bold border border-amber-200 text-xs"
+                    >
+                      <Coffee className="w-4 h-4 text-amber-700" />
+                      <span>Support the Developer</span>
+                    </a>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -2198,13 +2301,15 @@ export const GrowcabularyPlatform: React.FC = () => {
                   Data Management 🌳
                 </h3>
                 <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={requestResetCategory}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F7F9F4] rounded-xl hover:bg-[#ECF4E8] transition-colors text-emerald-900 font-bold border border-[#DCE6D6] text-xs"
-                  >
-                    <span>Reset Current Deck Shuffle 🍄</span>
-                  </button>
+                  {!showWelcome && selectedSeed && (
+                    <button
+                      type="button"
+                      onClick={requestResetCategory}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F7F9F4] rounded-xl hover:bg-[#ECF4E8] transition-colors text-emerald-900 font-bold border border-[#DCE6D6] text-xs"
+                    >
+                      <span>Reset Current Deck Shuffle 🍄</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={requestResetAll}
@@ -2430,6 +2535,18 @@ export const GrowcabularyPlatform: React.FC = () => {
           </div>
         </div>
       )}
+      {/* First-Visit Onboarding Tutorial Modal */}
+      <OnboardingTutorialModal
+        isOpen={showTutorial}
+        onClose={dismissTutorial}
+        onStartSeedSprout={handleStartFromTutorial}
+      />
+
+      <FeedbackModal
+        isOpen={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        defaultEmail={cloudUser?.email || ''}
+      />
     </div>
   );
 };

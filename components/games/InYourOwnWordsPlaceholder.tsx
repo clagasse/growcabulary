@@ -442,11 +442,11 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
           <span className="bg-emerald-800 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
             {currentWord.form}
           </span>
-          <span className="text-[10px] font-black text-emerald-800 bg-[#EDF5EB] border border-[#C6DEC2] px-2.5 py-0.5 rounded-full uppercase">
+          <span className="specimen-stamp text-[10px] text-emerald-900 bg-[#EDF5EB] border-[#96BE90] px-2.5 py-0.5">
             {ORIGIN_EMOJI_MAP[currentWord.origin] || '🍄'} {currentWord.origin}
           </span>
           <span
-            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${diffMeta.badgeClass}`}
+            className={`specimen-stamp text-[10px] px-2.5 py-0.5 ${diffMeta.badgeClass}`}
           >
             {diffMeta.emoji} {diffMeta.label}
           </span>

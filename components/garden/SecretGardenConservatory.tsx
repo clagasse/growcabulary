@@ -690,12 +690,22 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                         }
                         onSelectWordDossier(entry);
                       }}
-                      className={`rounded-2xl p-4 border-2 transition-all cursor-pointer shadow-sm flex flex-col justify-between group ${
+                      className={`relative overflow-hidden rounded-2xl border-2 transition-all cursor-pointer shadow-sm flex flex-col justify-between group ${
                         entry.isComposted
                           ? 'bg-[#F8F6EE] border-stone-300 hover:border-stone-500'
-                          : 'bg-[#FFFDF8] border-[#DCE5D5] hover:border-emerald-600'
+                          : `bg-gradient-to-b ${
+                              topicMeta.cardTintClass || 'from-[#F4FAF1]/70 via-[#FFFDF8] to-[#FFFDF8]'
+                            } border-[#DCE5D5] hover:border-emerald-600`
                       }`}
                     >
+                      <div
+                        className={`h-1.5 w-full shrink-0 ${
+                          entry.isComposted
+                            ? 'bg-stone-300'
+                            : topicMeta.accentBarClass || 'bg-emerald-600/65'
+                        }`}
+                      />
+                      <div className="p-4 flex-1 flex flex-col justify-between">
                       <div>
                         <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2.5">
                           {entry.isComposted ? (
@@ -709,9 +719,9 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                               {stageMeta.emoji} {stageMeta.label}
                             </span>
                           )}
-                          <div className="flex flex-wrap items-center gap-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${diffMeta.badgeClass}`}
+                              className={`specimen-stamp text-[10px] px-2 py-0.5 ${diffMeta.badgeClass}`}
                             >
                               {diffMeta.emoji} {diffMeta.label}
                             </span>
@@ -819,6 +829,7 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                           </div>
                         </div>
                       )}
+                      </div>
                     </div>
                   );
                 };
@@ -1108,71 +1119,246 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                   const thirsty = isWordThirsty(currentFlashcard);
                   const passage = getFieldNotePassage(currentFlashcard);
 
-                  return (
-                    <div className="journal-card rounded-3xl p-6 sm:p-8 transition-all">
-                      {/* Card Top Metadata: Difficulty, Topic, Stage, Part of Speech, Origin */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 pb-4 mb-6 border-b border-[#DCE5D5]">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${diffMeta.badgeClass}`}
-                          >
-                            {diffMeta.emoji} {diffMeta.label}
-                          </span>
-                          <span
-                            className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${topicMeta.badgeClass}`}
-                          >
-                            {topicMeta.emoji} {topicMeta.label}
-                          </span>
-                          <span
-                            className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${stageMeta.badgeClass}`}
-                          >
-                            {stageMeta.emoji} {stageMeta.label} (Rep #{currentFlashcard.repetitionCount || 1})
-                          </span>
-                          <span className="bg-emerald-800 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
-                            {currentFlashcard.form}
-                          </span>
-                          <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-[#EDF5EB] text-emerald-800 border border-[#C6DEC2]">
-                            {ORIGIN_EMOJI_MAP[currentFlashcard.origin] || '🍄'}{' '}
-                            {currentFlashcard.origin}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-[11px] font-black px-3 py-0.5 rounded-full border ${
-                              thirsty
-                                ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                : 'bg-sky-50 text-sky-800 border-sky-200'
-                            }`}
-                          >
-                            💧 {thirsty ? 'Due for Review' : `Reviewed (${hydration}%)`}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCompostFromConservatory(currentFlashcard)}
-                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 transition-colors"
-                            title="Already know this word well? Move it to Compost to skip future flashcards."
-                          >
-                            <Archive className="w-3 h-3" />
-                            <span>Compost 🍂</span>
-                          </button>
-                        </div>
+                  const renderCardHeader = (isBackFace: boolean) => (
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-4 mb-6 border-b border-[#DCE5D5]">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`specimen-stamp text-[10px] px-2.5 py-0.5 ${diffMeta.badgeClass}`}
+                        >
+                          {diffMeta.emoji} {diffMeta.label}
+                        </span>
+                        <span
+                          className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${topicMeta.badgeClass}`}
+                        >
+                          {topicMeta.emoji} {topicMeta.label}
+                        </span>
+                        <span
+                          className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${stageMeta.badgeClass}`}
+                        >
+                          {stageMeta.emoji} {stageMeta.label} (Rep #{currentFlashcard.repetitionCount || 1})
+                        </span>
+                        <span className="bg-emerald-800 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
+                          {currentFlashcard.form}
+                        </span>
+                        <span className="specimen-stamp text-[10px] px-2.5 py-0.5 bg-[#EDF5EB] text-emerald-900 border-[#96BE90]">
+                          {ORIGIN_EMOJI_MAP[currentFlashcard.origin] || '🍄'}{' '}
+                          {currentFlashcard.origin}
+                        </span>
                       </div>
 
-                      {/* CARD FRONT (Not Yet Flipped) */}
-                      {!isCardFlipped ? (
-                        <div className="space-y-6 py-2">
-                          {flashcardDirection === 'clue-to-word' ? (
-                            <>
-                              <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1.5">
-                                  Recall the {currentFlashcard.word.length}-Letter Word
+                      <div className="flex items-center gap-2">
+                        {isBackFace && (
+                          <button
+                            type="button"
+                            onClick={() => setIsCardFlipped(false)}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F4F7F0] hover:bg-emerald-100 text-emerald-900 border border-[#DCE5D5] transition-colors"
+                            title="Flip card back to the prompt"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Front</span>
+                          </button>
+                        )}
+                        <span
+                          className={`text-[11px] font-black px-3 py-0.5 rounded-full border ${
+                            thirsty
+                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                              : 'bg-sky-50 text-sky-800 border-sky-200'
+                          }`}
+                        >
+                          💧 {thirsty ? 'Due for Review' : `Reviewed (${hydration}%)`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCompostFromConservatory(currentFlashcard)}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 transition-colors"
+                          title="Already know this word well? Move it to Compost to skip future flashcards."
+                        >
+                          <Archive className="w-3 h-3" />
+                          <span>Compost 🍂</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+
+                  return (
+                    <div className="flashcard-perspective">
+                      <div className={`flashcard-inner ${isCardFlipped ? 'is-flipped' : ''}`}>
+                        {/* CARD FRONT FACE */}
+                        <div
+                          aria-hidden={isCardFlipped}
+                          className={`flashcard-face journal-card rounded-3xl overflow-hidden flex flex-col ${
+                            isCardFlipped ? 'pointer-events-none' : ''
+                          }`}
+                        >
+                          <div
+                            className={`h-1.5 w-full shrink-0 ${
+                              topicMeta.accentBarClass || 'bg-emerald-600/65'
+                            }`}
+                          />
+                          <div
+                            className={`p-6 sm:p-8 flex-1 bg-gradient-to-b ${
+                              topicMeta.cardTintClass || 'from-[#F4FAF1]/70 via-[#FFFDF8] to-[#FFFDF8]'
+                            }`}
+                          >
+                            {renderCardHeader(false)}
+                            <div className="space-y-6 py-2">
+                              {flashcardDirection === 'clue-to-word' ? (
+                                <>
+                                  <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1.5">
+                                      Recall the {currentFlashcard.word.length}-Letter Word
+                                    </p>
+                                    <h3 className="serif text-lg sm:text-2xl font-bold text-emerald-950 leading-snug">
+                                      {currentFlashcard.definition}
+                                    </h3>
+                                    {currentFlashcard.definition2 && (
+                                      <p className="serif text-xs sm:text-sm text-emerald-800 italic mt-2 border-l-2 border-emerald-500 pl-3">
+                                        {currentFlashcard.definition2}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="field-quote p-4 rounded-2xl">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
+                                      Example in Context
+                                    </p>
+                                    <p className="serif text-sm sm:text-base text-emerald-950 italic leading-relaxed">
+                                      &ldquo;{maskWordInText(passage.quote, currentFlashcard.word)}&rdquo;
+                                    </p>
+                                    {passage.author && (
+                                      <p className="text-xs font-bold text-emerald-800 mt-1.5 text-right">
+                                        — {passage.author}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* Optional Etymology Root Hint before flipping */}
+                                  {showCardRootHint ? (
+                                    <div className="p-3.5 rounded-2xl bg-[#FCF7EA] border border-[#E8D8B5] text-xs text-amber-950 animate-fade-in">
+                                      <span className="block text-[10px] font-black uppercase tracking-wider text-amber-800 mb-1">
+                                        Etymology Hint
+                                      </span>
+                                      <p className="serif italic">
+                                        {getSafeEtymologyHint(currentFlashcard)}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="flex justify-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowCardRootHint(true)}
+                                        className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3.5 py-1.5 rounded-full transition-colors"
+                                      >
+                                        <Sparkles className="w-3.5 h-3.5" /> Etymology Hint
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* Optional Quick Recall Input or Flip Button */}
+                                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                                    <input
+                                      type="text"
+                                      value={scratchGuess}
+                                      onChange={(e) => setScratchGuess(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          setIsCardFlipped(true);
+                                        }
+                                      }}
+                                      placeholder={`Optional: type your ${currentFlashcard.word.length}-letter guess, then press Enter...`}
+                                      className="flex-1 px-4 py-3 rounded-2xl bg-[#FAF7EE] border-2 border-[#C8D8C2] focus:border-emerald-600 focus:bg-[#FFFDF8] outline-none text-sm font-bold text-emerald-950"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsCardFlipped(true)}
+                                      className="px-6 py-3.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-2xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2"
+                                    >
+                                      <RotateCcw className="w-4 h-4" />
+                                      <span>Flip Card</span>
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                /* Word -> Meaning Prompt */
+                                <div className="text-center py-8 space-y-6">
+                                  <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-2">
+                                      Recall the Meaning
+                                    </p>
+                                    <h3 className="serif text-4xl sm:text-5xl font-black text-emerald-950">
+                                      {currentFlashcard.word}
+                                    </h3>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsCardFlipped(true)}
+                                    className="px-8 py-4 bg-emerald-800 hover:bg-emerald-900 text-white rounded-2xl font-bold text-sm shadow-lg transition-all inline-flex items-center gap-2"
+                                  >
+                                    <RotateCcw className="w-4 h-4" />
+                                    <span>Flip to Reveal Meaning</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* CARD BACK FACE */}
+                        <div
+                          aria-hidden={!isCardFlipped}
+                          className={`flashcard-face flashcard-back journal-card rounded-3xl overflow-hidden flex flex-col ${
+                            !isCardFlipped ? 'pointer-events-none' : ''
+                          }`}
+                        >
+                          <div
+                            className={`h-1.5 w-full shrink-0 ${
+                              topicMeta.accentBarClass || 'bg-emerald-600/65'
+                            }`}
+                          />
+                          <div
+                            className={`p-6 sm:p-8 flex-1 bg-gradient-to-b ${
+                              topicMeta.cardTintClass || 'from-[#F4FAF1]/70 via-[#FFFDF8] to-[#FFFDF8]'
+                            }`}
+                          >
+                            {renderCardHeader(true)}
+                            <div className="space-y-5">
+                              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                <div>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 block">
+                                    Answer
+                                  </span>
+                                  <h3 className="serif text-3xl sm:text-4xl font-black text-emerald-950">
+                                    {currentFlashcard.word}
+                                  </h3>
+                                </div>
+
+                                {scratchGuess.trim() && (
+                                  <span
+                                    className={`text-xs font-black px-3 py-1 rounded-full border ${
+                                      scratchGuess.trim().toLowerCase() ===
+                                      currentFlashcard.word.toLowerCase()
+                                        ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                        : 'bg-amber-100 text-amber-900 border-amber-300'
+                                    }`}
+                                  >
+                                    {scratchGuess.trim().toLowerCase() ===
+                                    currentFlashcard.word.toLowerCase()
+                                      ? '✓ Exact Match!'
+                                      : `You typed: "${scratchGuess.trim()}"`}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="journal-subcard p-4 rounded-2xl">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
+                                  Definition
                                 </p>
-                                <h3 className="serif text-lg sm:text-2xl font-bold text-emerald-950 leading-snug">
+                                <p className="serif text-base font-bold text-emerald-950 leading-snug">
                                   {currentFlashcard.definition}
-                                </h3>
+                                </p>
                                 {currentFlashcard.definition2 && (
-                                  <p className="serif text-xs sm:text-sm text-emerald-800 italic mt-2 border-l-2 border-emerald-500 pl-3">
+                                  <p className="serif text-xs sm:text-sm text-emerald-800 italic mt-1.5 border-l-2 border-emerald-500 pl-3">
                                     {currentFlashcard.definition2}
                                   </p>
                                 )}
@@ -1180,213 +1366,88 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
 
                               <div className="field-quote p-4 rounded-2xl">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
-                                  Example in Context
+                                  Context &amp; Literary Usage
                                 </p>
-                                <p className="serif text-sm sm:text-base text-emerald-950 italic leading-relaxed">
-                                  &ldquo;{maskWordInText(passage.quote, currentFlashcard.word)}&rdquo;
+                                <p className="serif text-sm text-emerald-950 italic leading-relaxed">
+                                  &ldquo;{passage.quote}&rdquo;
                                 </p>
                                 {passage.author && (
-                                  <p className="text-xs font-bold text-emerald-800 mt-1.5 text-right">
+                                  <p className="text-xs font-bold text-emerald-800 mt-1 text-right">
                                     — {passage.author}
                                   </p>
                                 )}
                               </div>
 
-                              {/* Optional Etymology Root Hint before flipping */}
-                              {showCardRootHint ? (
-                                <div className="p-3.5 rounded-2xl bg-[#FCF7EA] border border-[#E8D8B5] text-xs text-amber-950 animate-fade-in">
-                                  <span className="block text-[10px] font-black uppercase tracking-wider text-amber-800 mb-1">
-                                    Etymology Hint
-                                  </span>
-                                  <p className="serif italic">
-                                    {getSafeEtymologyHint(currentFlashcard)}
+                              {currentFlashcard.userSentence && (
+                                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-purple-800 mb-1">
+                                    Your Original Sentence 🪶
                                   </p>
-                                </div>
-                              ) : (
-                                <div className="flex justify-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowCardRootHint(true)}
-                                    className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3.5 py-1.5 rounded-full transition-colors"
-                                  >
-                                    <Sparkles className="w-3.5 h-3.5" /> Etymology Hint
-                                  </button>
+                                  <p className="serif text-sm text-purple-950 italic leading-relaxed">
+                                    &ldquo;{currentFlashcard.userSentence}&rdquo;
+                                  </p>
                                 </div>
                               )}
 
-                              {/* Optional Quick Recall Input or Flip Button */}
-                              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                                <input
-                                  type="text"
-                                  value={scratchGuess}
-                                  onChange={(e) => setScratchGuess(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      setIsCardFlipped(true);
-                                    }
-                                  }}
-                                  placeholder={`Optional: type your ${currentFlashcard.word.length}-letter guess, then press Enter...`}
-                                  className="flex-1 px-4 py-3 rounded-2xl bg-[#FAF7EE] border-2 border-[#C8D8C2] focus:border-emerald-600 focus:bg-[#FFFDF8] outline-none text-sm font-bold text-emerald-950"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setIsCardFlipped(true)}
-                                  className="px-6 py-3.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-2xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2"
-                                >
-                                  <RotateCcw className="w-4 h-4" />
-                                  <span>Flip Card</span>
-                                </button>
-                              </div>
-                            </>
-                          ) : (
-                            /* Word -> Meaning Prompt */
-                            <div className="text-center py-8 space-y-6">
-                              <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-2">
-                                  Recall the Meaning
+                              <div className="p-4 rounded-2xl bg-[#FCF7EA] border border-[#E8D8B5]">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 mb-1">
+                                  Etymology
                                 </p>
-                                <h3 className="serif text-4xl sm:text-5xl font-black text-emerald-950">
-                                  {currentFlashcard.word}
-                                </h3>
+                                <p className="serif text-xs sm:text-sm text-amber-950 italic leading-relaxed">
+                                  {currentFlashcard.etymology}
+                                </p>
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() => setIsCardFlipped(true)}
-                                className="px-8 py-4 bg-emerald-800 hover:bg-emerald-900 text-white rounded-2xl font-bold text-sm shadow-lg transition-all inline-flex items-center gap-2"
-                              >
-                                <RotateCcw className="w-4 h-4" />
-                                <span>Flip to Reveal Meaning</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        /* CARD BACK (Flipped: Reveals Full Answer + Spaced-Repetition Controls) */
-                        <div className="space-y-5 animate-fade-in">
-                          <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            <div>
-                              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 block">
-                                Answer
-                              </span>
-                              <h3 className="serif text-3xl sm:text-4xl font-black text-emerald-950">
-                                {currentFlashcard.word}
-                              </h3>
-                            </div>
+                              {/* Spaced-Repetition Grade Buttons */}
+                              <div className="pt-3 border-t border-[#DCE5D5]">
+                                <p className="text-center text-[10px] font-black uppercase tracking-widest text-emerald-800 mb-3">
+                                  Rate Your Recall
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGradeFlashcard(currentFlashcard, 2, true)}
+                                    className="p-3.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border-2 border-amber-200 text-amber-950 text-left transition-all flex flex-col justify-between"
+                                  >
+                                    <span className="text-xs font-black uppercase flex items-center gap-1.5">
+                                      Again
+                                    </span>
+                                    <span className="text-[11px] text-amber-800 mt-1">
+                                      Review again in 1 day
+                                    </span>
+                                  </button>
 
-                            {scratchGuess.trim() && (
-                              <span
-                                className={`text-xs font-black px-3 py-1 rounded-full border ${
-                                  scratchGuess.trim().toLowerCase() ===
-                                  currentFlashcard.word.toLowerCase()
-                                    ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                                    : 'bg-amber-100 text-amber-900 border-amber-300'
-                                }`}
-                              >
-                                {scratchGuess.trim().toLowerCase() ===
-                                currentFlashcard.word.toLowerCase()
-                                  ? '✓ Exact Match!'
-                                  : `You typed: "${scratchGuess.trim()}"`}
-                              </span>
-                            )}
-                          </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGradeFlashcard(currentFlashcard, 4, true)}
+                                    className="p-3.5 rounded-2xl bg-sky-600 hover:bg-sky-700 border-2 border-sky-700 text-white text-left transition-all shadow-md flex flex-col justify-between"
+                                  >
+                                    <span className="text-xs font-black uppercase flex items-center gap-1.5">
+                                      <Droplets className="w-3.5 h-3.5" /> Good
+                                    </span>
+                                    <span className="text-[11px] text-sky-100 mt-1">
+                                      Advance review interval
+                                    </span>
+                                  </button>
 
-                          <div className="journal-subcard p-4 rounded-2xl">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
-                              Definition
-                            </p>
-                            <p className="serif text-base font-bold text-emerald-950 leading-snug">
-                              {currentFlashcard.definition}
-                            </p>
-                            {currentFlashcard.definition2 && (
-                              <p className="serif text-xs sm:text-sm text-emerald-800 italic mt-1.5 border-l-2 border-emerald-500 pl-3">
-                                {currentFlashcard.definition2}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="field-quote p-4 rounded-2xl">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
-                              Context &amp; Literary Usage
-                            </p>
-                            <p className="serif text-sm text-emerald-950 italic leading-relaxed">
-                              &ldquo;{passage.quote}&rdquo;
-                            </p>
-                            {passage.author && (
-                              <p className="text-xs font-bold text-emerald-800 mt-1 text-right">
-                                — {passage.author}
-                              </p>
-                            )}
-                          </div>
-
-                          {currentFlashcard.userSentence && (
-                            <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-purple-800 mb-1">
-                                Your Original Sentence 🪶
-                              </p>
-                              <p className="serif text-sm text-purple-950 italic leading-relaxed">
-                                &ldquo;{currentFlashcard.userSentence}&rdquo;
-                              </p>
-                            </div>
-                          )}
-
-                          <div className="p-4 rounded-2xl bg-[#FCF7EA] border border-[#E8D8B5]">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 mb-1">
-                              Etymology
-                            </p>
-                            <p className="serif text-xs sm:text-sm text-amber-950 italic leading-relaxed">
-                              {currentFlashcard.etymology}
-                            </p>
-                          </div>
-
-                          {/* Spaced-Repetition Grade Buttons */}
-                          <div className="pt-3 border-t border-[#DCE5D5]">
-                            <p className="text-center text-[10px] font-black uppercase tracking-widest text-emerald-800 mb-3">
-                              Rate Your Recall
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <button
-                                type="button"
-                                onClick={() => handleGradeFlashcard(currentFlashcard, 2, true)}
-                                className="p-3.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border-2 border-amber-200 text-amber-950 text-left transition-all flex flex-col justify-between"
-                              >
-                                <span className="text-xs font-black uppercase flex items-center gap-1.5">
-                                  Again
-                                </span>
-                                <span className="text-[11px] text-amber-800 mt-1">
-                                  Review again in 1 day
-                                </span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleGradeFlashcard(currentFlashcard, 4, true)}
-                                className="p-3.5 rounded-2xl bg-sky-600 hover:bg-sky-700 border-2 border-sky-700 text-white text-left transition-all shadow-md flex flex-col justify-between"
-                              >
-                                <span className="text-xs font-black uppercase flex items-center gap-1.5">
-                                  <Droplets className="w-3.5 h-3.5" /> Good
-                                </span>
-                                <span className="text-[11px] text-sky-100 mt-1">
-                                  Advance review interval
-                                </span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleGradeFlashcard(currentFlashcard, 5, true)}
-                                className="p-3.5 rounded-2xl bg-emerald-800 hover:bg-emerald-900 border-2 border-emerald-950 text-white text-left transition-all shadow-md flex flex-col justify-between"
-                              >
-                                <span className="text-xs font-black uppercase flex items-center gap-1.5">
-                                  <Sun className="w-3.5 h-3.5 text-amber-300" /> Easy
-                                </span>
-                                <span className="text-[11px] text-emerald-100 mt-1">
-                                  Maximum interval boost
-                                </span>
-                              </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGradeFlashcard(currentFlashcard, 5, true)}
+                                    className="p-3.5 rounded-2xl bg-emerald-800 hover:bg-emerald-900 border-2 border-emerald-950 text-white text-left transition-all shadow-md flex flex-col justify-between"
+                                  >
+                                    <span className="text-xs font-black uppercase flex items-center gap-1.5">
+                                      <Sun className="w-3.5 h-3.5 text-amber-300" /> Easy
+                                    </span>
+                                    <span className="text-[11px] text-emerald-100 mt-1">
+                                      Maximum interval boost
+                                    </span>
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   );
                 })()}

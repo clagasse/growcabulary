@@ -462,7 +462,7 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
             {currentWord.word.length} letters
           </span>
           {etymologyUnlocked && (
-            <span className="text-[10px] sm:text-xs font-black text-emerald-800 bg-[#EDF5EB] border border-[#C6DEC2] px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+            <span className="specimen-stamp text-[10px] sm:text-xs text-emerald-900 bg-[#EDF5EB] border-[#96BE90] px-2.5 py-0.5 flex items-center gap-1">
               {ORIGIN_EMOJI_MAP[currentWord.origin] || '🍄'} {currentWord.origin}
             </span>
           )}
@@ -474,7 +474,7 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
           return (
             <div className="flex flex-wrap items-center gap-1.5">
               <span
-                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${diffMeta.badgeClass}`}
+                className={`specimen-stamp text-[10px] px-2.5 py-0.5 ${diffMeta.badgeClass}`}
               >
                 {diffMeta.emoji} {diffMeta.label}
               </span>
