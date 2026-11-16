@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F1F7EE] text-emerald-950 antialiased;
+  }
+}
+
+.serif {
+  font-family: 'Fraunces', Georgia, Cambria, 'Times New Roman', Times, serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sunlit Botanical Journal (Hybrid Theme) */
+.hybrid-bg {
+  background-color: #f1f7ee;
+  background-image:
+    radial-gradient(at 15% 15%, rgba(254, 243, 199, 0.55) 0px, transparent 50%),
+    radial-gradient(at 85% 85%, rgba(209, 250, 229, 0.65) 0px, transparent 50%);
+}
+
+.journal-card {
+  background-color: #fffdf8;
+  border: 1.5px solid #d5e0d0;
+  box-shadow:
+    0 20px 40px -15px rgba(20, 83, 45, 0.09),
+    0 0 0 4px #fffdf8,
+    0 0 0 5px #eae3d2;
+}
+
+.journal-subcard {
+  background-color: #f8f6ee;
+  border: 1px solid #dce5d5;
+}
+
+.field-quote {
+  background-color: #f7f3e8;
+  border: 1px solid #e6dec8;
+  border-left: 3px solid #16a34a;
+}

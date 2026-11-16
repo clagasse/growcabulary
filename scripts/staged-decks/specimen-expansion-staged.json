@@ -1,0 +1,121 @@
+{
+  "deck": {
+    "slug": "specimen-expansion",
+    "title": "Curated Specimen Expansion Batch #1",
+    "description": "Candidate vocabulary words staged for Curator review across Emotions, Philosophy, Biology, and Architecture.",
+    "status": "staged_for_curator_review",
+    "generated_at": "2026-11-05T20:51:00.000Z"
+  },
+  "words": [
+    {
+      "id": "staged-1794760313047-0",
+      "word": "efflorescence",
+      "seed": "garden",
+      "form": "noun",
+      "definition": "The state or period of flowering and reaching a peak of developmental beauty.",
+      "definition2": "A powdery, whitish crust formed on mineral surfaces when moisture evaporates.",
+      "etymology": "Derived from the Latin verb 'efflorescere', which combines the prefix 'ex-' meaning 'out' with 'florescere' meaning 'to begin blooming'. In Roman agriculture, the term originally captured the miraculous visual explosion when orchards and vineyards abruptly burst into full flower under the spring warmth. Over subsequent centuries, natural philosophers and literary scholars adopted the image to describe both the highest aesthetic zenith of a cultural movement and the crystalline crust blooming upon evaporating stone.",
+      "example": "The late sixteenth century witnessed a glorious efflorescence of English drama, transforming rough public playhouses into enduring temples of poetic invention.",
+      "origin": "Latin 'efflorescere' (to blossom or bloom forth)"
+    },
+    {
+      "id": "staged-1794760313047-1",
+      "word": "imbrocato",
+      "seed": "garden",
+      "form": "noun",
+      "definition": "A dense tangle of interwoven branches, briers, or thorny undergrowth.",
+      "definition2": "An intricate, bewilderingly complicated state of affairs or entanglement.",
+      "etymology": "Originating from the Italian dialectal term 'imbroccare', related to 'brocco' denoting a sharp twig, prickle, or splinter. Medieval Italian gardeners used the noun to describe those untamed, impenetrable pockets of estate wilderness where brambles knitted tightly into impassable thickets. That thorny, briery snare soon provided Mediterranean playwrights and storytellers with a perfect physical metaphor for knotty diplomatic intrigues and muddled misunderstandings.",
+      "example": "Hunters dared not send their hounds through the treacherous imbrocato, where wild blackberry thorns formed an impenetrable mesh guarding the ravine.",
+      "origin": "Italian 'brocco' (shoot, thorn, splinter)"
+    },
+    {
+      "id": "staged-1794760313047-2",
+      "word": "surculose",
+      "seed": "garden",
+      "form": "adjective",
+      "definition": "Producing or multiplying by means of vigorous suckers and underground runners.",
+      "definition2": "Spreading aggressively outward into new territory through hidden, offshoot channels.",
+      "etymology": "Constructed from the classical Latin noun 'surculus', meaning a young twig, tender shoot, or botanical sucker. Roman viticulturists carefully monitored the surculus, debating whether to prune these rapacious sap-stealing sprouts or root them to establish new rows of hardy vines. Naturalists in the eighteenth century revived the descriptor for any plant or subversive institution that expands relentlessly underground before surfacing everywhere at once.",
+      "example": "Left untended along the fence line, the surculose raspberry bushes sent subterranean runners deep beneath the gravel pathway into neighboring flower beds.",
+      "origin": "Latin 'surculus' (sprout, graft, sucker)"
+    },
+    {
+      "id": "staged-1794760313047-3",
+      "word": "frondescence",
+      "seed": "garden",
+      "form": "noun",
+      "definition": "The seasonal unfolding and bursting forth of new foliage on trees and shrubs.",
+      "definition2": "A lush, verdant abundance characteristic of fertile green growth.",
+      "etymology": "Rooted in the Latin noun 'frons' (stem 'frond-'), which referred specifically to a leafy bough, garland, or mass of tree foliage. Classical Romans celebrated the yearly arrival of fresh canopy shade, weaving ceremonial wreaths from newly harvested frondes to honor rustic deities. By the nineteenth century, Romantic nature essayists adopted the Latinate derivative to poeticize that breathless moment when bare winter woods vanish under emerald canopies.",
+      "example": "May arrived with a sudden, breathless frondescence, cloaking the stark gray limbs of the ancient beech forest in soft, luminous emerald.",
+      "origin": "Latin 'frons' (leafy bough, foliage)"
+    },
+    {
+      "id": "staged-1794760313047-4",
+      "word": "espalier",
+      "seed": "garden",
+      "form": "noun",
+      "definition": "A fruit tree or shrub trained to grow flat against a wall, fence, or trellis.",
+      "definition2": "A framework of lattice or wire designed to support and shape trained vegetation.",
+      "etymology": "Borrowed through French from the Italian noun 'spalliera', derived from 'spalla' meaning 'shoulder'. In Renaissance Italian kitchen gardens, estate keepers leaned woven lath against stone masonry to support heavy, fruitful branches upon their protective 'shoulders'. The physical technique allowed gardeners in chillier northern climates to maximize radiated warmth, evolving from a pragmatic pruning craft into an elegant formal motif.",
+      "example": "Trained across the warm limestone terrace, the pear espalier yielded heavy, sun-warmed fruit within convenient reach of the estate chef's shears.",
+      "origin": "Italian 'spalliera' via 'spalla' (shoulder, support)"
+    },
+    {
+      "id": "staged-1794760313047-5",
+      "word": "topiary",
+      "seed": "garden",
+      "form": "noun",
+      "definition": "The horticultural practice of clipping shrubs into ornamental geometric or animal shapes.",
+      "definition2": "A tree or bush carefully clipped and sculpted into a fanciful decorative figure.",
+      "etymology": "Traced to the Latin noun 'topiarius', meaning an ornamental landscape gardener, stemming from the Greek 'topos' for 'place'. Wealthy patricians of ancient Rome hired specialized enslaved craftsmen called 'topiarii' to shear boxwood and cypress into ships, hunting scenes, and letters spelling the owner's name. The craft survived in monastic courtyards and grand renaissance villas, transforming ordinary hedges into living architecture and permanent outdoor sculpture.",
+      "example": "Generations of meticulous estate groundskeepers had preserved the cedar topiary, shaping its evergreen crown into the likeness of a strutting peacock.",
+      "origin": "Latin 'topiarius' from Greek 'topos' (place, local landscape)"
+    },
+    {
+      "id": "staged-1794759414513-0",
+      "word": "tenebrific",
+      "seed": "conservatory",
+      "form": "adjective",
+      "definition": "producing darkness or gloom",
+      "definition2": "obscuring clarity of thought or understanding",
+      "etymology": "Derived from the Latin 'tenebrosus', stemming from 'tenebrae', meaning 'shadows' or 'darkness'. In ancient Roman mythology, Tenebrae was personified as the primeval gloom that preceded light and inhabited the underworld. Over centuries of scholastic philosophy, the literal cloak of night transformed into a descriptor for ideas or atmospheres that willfully extinguish intellectual enlightenment.",
+      "example": "The philosopher rejected the sophist's tenebrific prose, arguing that intentionally convoluted metaphors merely served to conceal a fundamental lack of rigorous logic.",
+      "origin": "Latin"
+    },
+    {
+      "id": "staged-1794759414513-1",
+      "word": "susurration",
+      "seed": "conservatory",
+      "form": "noun",
+      "definition": "a low whispering or murmuring sound",
+      "definition2": "an undercurrent of continuous rumor or subtle dissent",
+      "etymology": "Traced to the Latin noun 'susurrus', meaning a 'whisper' or 'hum', which arose as an onomatopoeic creation mimicking muffled speech. In Classical Rome, the term often carried conspiratorial connotations, evoking secretive gatherings of senators plotting behind heavy velvet draperies. The physical hiss of rustling leaves or quiet voices eventually broadened to denote insidious rumors rippling softly through a community.",
+      "example": "A nervous susurration swept through the grand amphitheater as the premier stepped away from the podium without announcing the expected economic reforms.",
+      "origin": "Latin"
+    },
+    {
+      "id": "staged-1794759414513-2",
+      "word": "rebarbative",
+      "seed": "conservatory",
+      "form": "adjective",
+      "definition": "unattractive, objectionable, or repellent in appearance or manner",
+      "definition2": "prickly and bristling with hostility",
+      "etymology": "Borrowed from the French 'rébarbatif', which evolved from the Old French phrase 'faire la barbe', literally translating to 'to face someone beard-to-beard' in defiance. Medieval conflicts often featured bristling warriors confronting one another with thrust-out chins and stiffened beards to intimidate foes. This vivid posturing of physical aggression softened into an adjective describing anything abrasively unpleasant or grimly forbidding.",
+      "example": "Despite his brilliant legal acumen, the magistrate's rebarbative demeanor frequently alienated the very colleagues whose political endorsements he desperately required.",
+      "origin": "French"
+    },
+    {
+      "id": "staged-1794759414513-4",
+      "word": "velleity",
+      "seed": "conservatory",
+      "form": "noun",
+      "definition": "a mere wish or inclination unaccompanied by the effort to obtain it",
+      "definition2": "the lowest degree of active volition",
+      "etymology": "Derived from the Medieval Latin 'velleitas', stemming from the irregular Latin verb 'velle', which means 'to wish' or 'to will'. Scholastic philosophers coined the term during the high Middle Ages to distinguish a passive preference from an earnest, actionable choice governed by moral agency. Modern usage preserves this contemplative nuance, denoting half-formed aspirations that dissolve before ever crystallizing into purposeful human action.",
+      "example": "Her sudden desire to study Renaissance cartography remained a brief velleity, abandoned the moment she discovered the exhaustive archival work the subject demanded.",
+      "origin": "Medieval Latin"
+    }
+  ]
+}
