@@ -129,6 +129,7 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
   const [flashcardDirection, setFlashcardDirection] =
     useState<FlashcardDirection>('clue-to-word');
   const [cardIndex, setCardIndex] = useState(0);
+  const [pendingCardTarget, setPendingCardTarget] = useState<string | null>(null);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [showCardRootHint, setShowCardRootHint] = useState(false);
   const [scratchGuess, setScratchGuess] = useState('');
@@ -300,6 +301,17 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
       return a.word.localeCompare(b.word);
     });
   }, [flashcardScope, scopedDueFlashcards, scopedActiveFlashcards]);
+
+  useEffect(() => {
+    if (activeTab !== 'flashcards' || !pendingCardTarget) return;
+    const idx = flashcardDeckEntries.findIndex(
+      (w) => w.word.toLowerCase() === pendingCardTarget.toLowerCase()
+    );
+    if (idx >= 0) {
+      setCardIndex(idx);
+    }
+    setPendingCardTarget(null);
+  }, [activeTab, pendingCardTarget, flashcardDeckEntries]);
 
   // Grouped sections when viewing `My Words` sorted by topic or difficulty
   const groupedSections = useMemo(() => {
@@ -1462,6 +1474,28 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
             learnedEntries={activeEntries}
             allLexiconWords={allLexiconWords}
             onSelectWordDossier={onSelectWordDossier}
+            onOpenWordFlashcard={(word) => {
+              const targetKey = word.word.toLowerCase();
+              const isDiscovered = activeEntries.some(
+                (e) => e.word.toLowerCase() === targetKey
+              );
+              if (!isDiscovered) {
+                onSelectWordDossier({
+                  ...word,
+                  dateLearned: 'Undiscovered',
+                  growthStage: 'seed',
+                });
+                return;
+              }
+              setOriginFilter('all');
+              setDifficultyFilter('all');
+              setTopicFilter('all');
+              setStageFilter('all');
+              setFlashcardScope('all');
+              setPendingCardTarget(targetKey);
+              setActiveTab('flashcards');
+              resetCardState();
+            }}
             onPracticeOriginFlashcards={(originFilterKey) => {
               setOriginFilter(originFilterKey);
               setDifficultyFilter('all');

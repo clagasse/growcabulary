@@ -36,6 +36,7 @@ import {
   Maximize2,
   Search,
   Sparkles,
+  X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ interface EtymologyPhylogenyExplorerProps {
   learnedEntries: GardenEntry[];
   allLexiconWords: Word[];
   onSelectWordDossier: (word: GardenEntry) => void;
+  onOpenWordFlashcard?: (word: Word) => void;
   onPracticeOriginFlashcards?: (originFilterKey: string) => void;
 }
 
@@ -156,6 +158,7 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
   learnedEntries,
   allLexiconWords,
   onSelectWordDossier,
+  onOpenWordFlashcard,
   onPracticeOriginFlashcards,
 }) => {
   const [trunkFilter, setTrunkFilter] = useState<TrunkFilter>('all');
@@ -164,6 +167,7 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [popupAnchor, setPopupAnchor] = useState<{ left: number; top: number } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const simRef = useRef<Simulation<GraphNode, GraphLink> | null>(null);
@@ -840,17 +844,45 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
     schedulePaint();
   }, [hoveredNodeId, selectedNodeId, searchMatchIds, schedulePaint]);
 
+  const computePopupAnchor = useCallback((node: GraphNode) => {
+    const canvas = canvasRef.current;
+    if (!canvas || node.x === undefined || node.y === undefined) return { left: 16, top: 16 };
+    const { x: tx, y: ty, k } = transformRef.current;
+    const sx = node.x * k + tx;
+    const sy = node.y * k + ty;
+    const cw = canvas.clientWidth || 800;
+    const ch = canvas.clientHeight || 560;
+    const cardW = Math.min(340, cw - 24);
+    const cardH = 310;
+    // Prefer opening to the right of the node, flip left if near right edge
+    const rawLeft = sx + cardW + 24 <= cw ? sx + 18 : sx - cardW - 18;
+    const left = Math.round(Math.max(12, Math.min(cw - cardW - 12, rawLeft)));
+    const top = Math.round(Math.max(12, Math.min(ch - cardH - 12, sy - 64)));
+    return { left, top };
+  }, []);
+
+  const selectAndOpenPopup = useCallback(
+    (node: GraphNode | null) => {
+      if (!node) {
+        selectedIdRef.current = null;
+        setSelectedNodeId(null);
+        setPopupAnchor(null);
+        return;
+      }
+      selectedIdRef.current = node.id;
+      setSelectedNodeId(node.id);
+      setPopupAnchor(computePopupAnchor(node));
+    },
+    [computePopupAnchor]
+  );
+
+  // Clear selection if node disappears due to filter change
   useEffect(() => {
-    if (graphData.nodes.length === 0) {
+    if (selectedNodeId && !graphData.nodeById.has(selectedNodeId)) {
+      selectedIdRef.current = null;
       setSelectedNodeId(null);
-      return;
+      setPopupAnchor(null);
     }
-    if (selectedNodeId && graphData.nodeById.has(selectedNodeId)) return;
-    const preferred =
-      graphData.nodes.find((n) => n.kind === 'word' && n.degree > 0 && n.isLearned) ||
-      graphData.nodes.find((n) => n.kind === 'word' && n.degree > 0) ||
-      graphData.nodes.find((n) => n.kind === 'word');
-    setSelectedNodeId(preferred?.id || null);
   }, [graphData, selectedNodeId]);
 
   useEffect(() => {
@@ -956,8 +988,7 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
     const st = interactionRef.current;
     if (st.mode === 'drag-node' && st.dragNode) {
       if (!st.moved) {
-        selectedIdRef.current = st.dragNode.id;
-        setSelectedNodeId(st.dragNode.id);
+        selectAndOpenPopup(st.dragNode);
       }
       st.dragNode.fx = null;
       st.dragNode.fy = null;
@@ -966,9 +997,7 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
       }
     } else if (st.mode === 'pan' && !st.moved) {
       const hit = hitTestNode(e.clientX, e.clientY);
-      const nextId = hit ? hit.id : null;
-      selectedIdRef.current = nextId;
-      setSelectedNodeId(nextId);
+      selectAndOpenPopup(hit);
     }
     interactionRef.current.mode = 'none';
     interactionRef.current.dragNode = null;
@@ -1009,8 +1038,6 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
 
   const focusNodeOnCamera = useCallback(
     (nodeId: string) => {
-      selectedIdRef.current = nodeId;
-      setSelectedNodeId(nodeId);
       const node = graphData.nodeById.get(nodeId);
       const canvas = canvasRef.current;
       if (!node || node.x === undefined || node.y === undefined || !canvas) return;
@@ -1020,9 +1047,10 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
         y: canvas.clientHeight / 2 - node.y * k,
         k,
       };
+      selectAndOpenPopup(node);
       schedulePaint();
     },
-    [graphData.nodeById, schedulePaint]
+    [graphData.nodeById, schedulePaint, selectAndOpenPopup]
   );
 
   const selectedDetails = useMemo(() => {
@@ -1223,88 +1251,171 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
 
         {/* Subtle interaction hint */}
         <div className="absolute bottom-3 left-3 pointer-events-none px-3 py-1 rounded-full bg-white/85 backdrop-blur-sm border border-[#DCE5D5] text-[10.5px] font-semibold text-emerald-800">
-          Scroll to zoom · Drag background to pan · Click any node to inspect links
+          Scroll to zoom · Drag background to pan · Click any node for details
         </div>
-      </div>
 
-      {/* Selected Node Inspector Bar */}
-      {selectedDetails && (
-        <div className="bg-[#FFFDF8] rounded-3xl border border-[#DCE5D5] p-5 shadow-sm space-y-3">
-          {selectedDetails.node.kind === 'hub' ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">
-                    Root Hub · {selectedDetails.node.hubOrigin}
-                  </span>
-                  <h4 className="serif font-black text-2xl text-emerald-950">
-                    {selectedDetails.node.label}{' '}
-                    <span className="text-base font-normal italic text-amber-900">
-                      &ldquo;{selectedDetails.node.sublabel}&rdquo;
-                    </span>
-                  </h4>
-                </div>
-                <span className="text-xs font-black px-3 py-1 rounded-full bg-amber-100 text-amber-950 border border-amber-200">
-                  {selectedDetails.relatedWordNodes.length} words in network
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {selectedDetails.relatedWordNodes.map((rn) => (
-                  <button
-                    key={`hub-rel-${rn.id}`}
-                    type="button"
-                    onClick={() => focusNodeOnCamera(rn.id)}
-                    className="px-3 py-1 rounded-full bg-[#EDF5EB] hover:bg-[#DCECD8] text-emerald-950 border border-[#BBD9B7] text-xs font-bold transition-colors"
-                  >
-                    {rn.isLearned ? '🌿' : '🔒'} {rn.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            selectedDetails.node.wordData && (
+        {/* Floating Pop-Up Menu Anchored Beside Clicked Node */}
+        {selectedDetails && popupAnchor && (
+          <div
+            className="absolute z-20 w-[336px] max-w-[calc(100%-24px)] max-h-[340px] overflow-y-auto bg-[#FFFDF8]/97 backdrop-blur-md rounded-2xl border-2 border-emerald-700/30 shadow-xl p-4 space-y-2.5 animate-fade-in"
+            style={{ left: `${popupAnchor.left}px`, top: `${popupAnchor.top}px` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {selectedDetails.node.kind === 'hub' ? (
               <>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1 max-w-3xl">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="serif font-black text-2xl text-emerald-950">
-                        {selectedDetails.node.wordData.word}
-                      </h4>
-                      <span className="text-[10px] font-bold uppercase bg-emerald-800 text-white px-2.5 py-0.5 rounded-full">
-                        {selectedDetails.node.wordData.form}
-                      </span>
-                      {selectedDetails.node.lineage && (
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#EDF5EB] text-emerald-950 border border-[#BBD9B7]">
-                          {ORIGIN_EMOJI_MAP[selectedDetails.node.lineage.rootOrigin] || '🌱'}{' '}
-                          {selectedDetails.node.lineage.displayBadge}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="text-[9.5px] font-black uppercase tracking-wider text-amber-800">
+                      ◆ Root Hub · {selectedDetails.node.hubOrigin}
+                    </span>
+                    <h4 className="serif font-black text-lg text-emerald-950 leading-tight">
+                      {selectedDetails.node.label}
+                    </h4>
+                    {selectedDetails.node.sublabel && (
+                      <p className="text-xs italic text-amber-900">
+                        &ldquo;{selectedDetails.node.sublabel}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => selectAndOpenPopup(null)}
+                    aria-label="Close pop-up"
+                    className="p-1 rounded-full hover:bg-stone-100 text-stone-500 hover:text-stone-900 shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedDetails.relatedWordNodes.map((rn) => (
+                    <button
+                      key={`pop-hub-${rn.id}`}
+                      type="button"
+                      onClick={() => focusNodeOnCamera(rn.id)}
+                      className="px-2.5 py-1 rounded-full bg-[#EDF5EB] hover:bg-[#DCECD8] text-emerald-950 border border-[#BBD9B7] text-xs font-bold transition-colors"
+                    >
+                      {rn.isLearned ? '🌿' : '🔒'} {rn.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              selectedDetails.node.wordData && (
+                <>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <h4 className="serif font-black text-xl text-emerald-950 leading-tight">
+                          {selectedDetails.node.wordData.word}
+                        </h4>
+                        <span className="text-[9px] font-bold uppercase bg-emerald-800 text-white px-2 py-0.5 rounded-full">
+                          {selectedDetails.node.wordData.form}
                         </span>
-                      )}
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
-                        {getDifficultyMeta(selectedDetails.node.wordData).emoji}{' '}
+                      </div>
+                      <p className="text-[10.5px] font-bold text-emerald-700">
+                        {ORIGIN_EMOJI_MAP[selectedDetails.node.lineage?.rootOrigin || ''] || '🌱'}{' '}
+                        {selectedDetails.node.lineage?.displayBadge} ·{' '}
                         {getDifficultyMeta(selectedDetails.node.wordData).label}
-                      </span>
+                      </p>
                     </div>
-                    <p className="serif text-sm text-emerald-900 font-medium leading-relaxed">
-                      {selectedDetails.node.wordData.definition}
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => selectAndOpenPopup(null)}
+                      aria-label="Close pop-up"
+                      className="p-1 rounded-full hover:bg-stone-100 text-stone-500 hover:text-stone-900 shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    {onPracticeOriginFlashcards && (
+                  <p className="serif text-xs sm:text-sm text-emerald-950 font-medium leading-relaxed">
+                    {selectedDetails.node.wordData.definition}
+                  </p>
+                  {selectedDetails.node.wordData.definition2 && (
+                    <p className="text-[11px] text-emerald-800 leading-snug">
+                      Also: {selectedDetails.node.wordData.definition2}
+                    </p>
+                  )}
+
+                  {/* Compact Prefix · Root · Suffix Badges */}
+                  {selectedDetails.profile &&
+                    (selectedDetails.profile.prefixes.length > 0 ||
+                      selectedDetails.profile.roots.length > 0 ||
+                      selectedDetails.profile.suffixes.length > 0) && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {selectedDetails.profile.prefixes.map((p, i) => (
+                          <span
+                            key={`pp-${i}`}
+                            className="px-2 py-0.5 rounded-lg bg-[#FCF7EA] border border-[#E6D4A5] text-amber-950 text-[10.5px] font-bold"
+                          >
+                            {p.form} &ldquo;{p.meaning}&rdquo;
+                          </span>
+                        ))}
+                        {selectedDetails.profile.roots.map((r, i) => (
+                          <span
+                            key={`pr-${i}`}
+                            className="px-2 py-0.5 rounded-lg bg-[#EDF5EB] border border-[#BBD9B7] text-emerald-950 text-[10.5px] font-bold"
+                            title={
+                              r.pieRoot
+                                ? `Shared Ancient Root ${r.pieRoot}`
+                                : undefined
+                            }
+                          >
+                            {r.form} &ldquo;{r.meaning}&rdquo;
+                          </span>
+                        ))}
+                        {selectedDetails.profile.suffixes.map((s, i) => (
+                          <span
+                            key={`ps-${i}`}
+                            className="px-2 py-0.5 rounded-lg bg-stone-100 border border-stone-200 text-stone-700 text-[10.5px] font-semibold"
+                          >
+                            {s.form}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                  {/* Linked Cousins */}
+                  {selectedDetails.relatedWordNodes.length > 0 && (
+                    <div className="pt-0.5 space-y-1">
+                      <span className="block text-[9.5px] font-black uppercase tracking-wider text-sky-800">
+                        Linked Words ({selectedDetails.relatedWordNodes.length})
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedDetails.relatedWordNodes.slice(0, 8).map((rn) => {
+                          const entry = learnedMap.get(rn.label.toLowerCase());
+                          const icon = entry
+                            ? GROWTH_STAGE_META[entry.growthStage || 'sprout'].emoji
+                            : '🔒';
+                          return (
+                            <button
+                              key={`pop-rel-${rn.id}`}
+                              type="button"
+                              onClick={() => focusNodeOnCamera(rn.id)}
+                              className="px-2 py-0.5 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-950 border border-sky-200 text-[11px] font-bold transition-colors"
+                            >
+                              {icon} {rn.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons right inside the pop-up */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1.5 border-t border-[#DCE5D5]">
+                    {onOpenWordFlashcard && (
                       <button
                         type="button"
                         onClick={() =>
-                          onPracticeOriginFlashcards(
-                            `branch:${classifyOriginBranch(selectedDetails.node.wordData!.origin).branchId}`
-                          )
+                          onOpenWordFlashcard(selectedDetails.node.wordData!)
                         }
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 text-xs font-bold transition-colors"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold shadow-sm transition-colors"
                       >
                         <Droplets className="w-3.5 h-3.5" />
                         <span>
-                          Flashcards:{' '}
-                          {classifyOriginBranch(selectedDetails.node.wordData.origin).branchLabel}
+                          {selectedDetails.node.isLearned ? 'Open Flashcard' : 'Inspect Word'}
                         </span>
                       </button>
                     )}
@@ -1313,93 +1424,34 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
                       onClick={() =>
                         onSelectWordDossier(toDossierEntry(selectedDetails.node.wordData!))
                       }
-                      className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold shadow-sm transition-colors"
+                      className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl bg-[#F4F7F0] hover:bg-[#E7F0E3] text-emerald-950 border border-[#DCE5D5] text-xs font-bold transition-colors"
                     >
                       <BookOpen className="w-3.5 h-3.5" />
-                      <span>Open Full Dossier</span>
+                      <span>Dossier</span>
                     </button>
-                  </div>
-                </div>
-
-                {/* Prefix · Root · Suffix Pills */}
-                {selectedDetails.profile && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {selectedDetails.profile.prefixes.map((p, i) => (
-                      <span
-                        key={`p-${i}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#FCF7EA] border border-[#E6D4A5] text-amber-950 text-xs"
+                    {onPracticeOriginFlashcards && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onPracticeOriginFlashcards(
+                            `branch:${classifyOriginBranch(selectedDetails.node.wordData!.origin).branchId}`
+                          )
+                        }
+                        className="w-full inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 text-[11px] font-bold transition-colors"
                       >
-                        <span className="text-[9px] font-black uppercase text-amber-700">Pre</span>
-                        <span className="serif font-black">{p.form}</span>
-                        <span className="opacity-75 italic">&ldquo;{p.meaning}&rdquo;</span>
-                      </span>
-                    ))}
-                    {selectedDetails.profile.roots.map((r, i) => (
-                      <span
-                        key={`r-${i}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#EDF5EB] border border-[#BBD9B7] text-emerald-950 text-xs"
-                      >
-                        <span className="text-[9px] font-black uppercase text-emerald-700">
-                          Root
+                        <span>
+                          Practice All{' '}
+                          {classifyOriginBranch(selectedDetails.node.wordData.origin).branchLabel}
                         </span>
-                        <span className="serif font-black">{r.form}</span>
-                        <span className="opacity-75 italic">&ldquo;{r.meaning}&rdquo;</span>
-                        {r.pieRoot && (
-                          <span
-                            className="text-[10px] font-bold px-1.5 rounded bg-white text-purple-900 border border-purple-200"
-                            title="Shared Ancient Root (Proto-Indo-European ancestor connecting cross-language cognates)"
-                          >
-                            Shared Ancient Root {r.pieRoot}
-                          </span>
-                        )}
-                      </span>
-                    ))}
-                    {selectedDetails.profile.suffixes.map((s, i) => (
-                      <span
-                        key={`s-${i}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-stone-100 border border-stone-200 text-stone-700 text-xs"
-                      >
-                        <span className="text-[9px] font-black uppercase text-stone-500">Suf</span>
-                        <span className="serif font-bold">{s.form}</span>
-                        <span className="opacity-75 italic">&ldquo;{s.meaning}&rdquo;</span>
-                      </span>
-                    ))}
+                      </button>
+                    )}
                   </div>
-                )}
-
-                {/* Linked Words */}
-                {selectedDetails.relatedWordNodes.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-sky-800 mr-1">
-                      Linked Words:
-                    </span>
-                    {selectedDetails.relatedWordNodes.map((rn) => {
-                      const entry = learnedMap.get(rn.label.toLowerCase());
-                      const icon = entry
-                        ? GROWTH_STAGE_META[entry.growthStage || 'sprout'].emoji
-                        : '🔒';
-                      return (
-                        <button
-                          key={`rel-${rn.id}`}
-                          type="button"
-                          onClick={() => focusNodeOnCamera(rn.id)}
-                          className="px-2.5 py-1 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-950 border border-sky-200 text-xs font-bold transition-colors"
-                        >
-                          {icon} {rn.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <p className="serif text-xs text-emerald-900 italic bg-[#FAF7EE] p-3.5 rounded-xl border border-[#DCE5D5] leading-relaxed">
-                  🪴 {selectedDetails.node.wordData.etymology}
-                </p>
-              </>
-            )
-          )}
-        </div>
-      )}
+                </>
+              )
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
