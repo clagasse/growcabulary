@@ -1,4 +1,5 @@
 import { Word, ExtractedRootGroup } from '../types';
+import { WORD_MORPHEMES, getWordMorphemeProfile } from './morphemes';
 
 /**
  * Curated canonical root families that appear across multiple specimens in RAW_WORDS,
@@ -2524,13 +2525,78 @@ export function resolveAncestralRootOrigin(word: Word): AncestralLineageInfo {
   };
 }
 
+const CANONICAL_BY_ID = new Map<string, CanonicalRootDef>(
+  CANONICAL_ROOT_FAMILIES.map((f) => [f.id, f])
+);
+
+const PIE_GROUP_TO_ROOT_IDS = new Map<string, Set<string>>();
+for (const profile of Object.values(WORD_MORPHEMES)) {
+  for (const r of profile.roots) {
+    if (!r.pieGroupId || !r.canonicalId) continue;
+    let set = PIE_GROUP_TO_ROOT_IDS.get(r.pieGroupId);
+    if (!set) {
+      set = new Set<string>();
+      PIE_GROUP_TO_ROOT_IDS.set(r.pieGroupId, set);
+    }
+    set.add(r.canonicalId);
+  }
+}
+
 /**
  * Extracts 1-4 morphological components (canonical roots, prefixes, and quoted classical stems)
  * from a word and its etymology narrative, ordering deepest ancestral stems before prefixes.
  */
 export function extractWordMorphemes(word: Word): ExtractedMorpheme[] {
-  const ety = normalizeEtymologyQuotes(word.etymology || '');
   const lineage = resolveAncestralRootOrigin(word);
+  const structured = getWordMorphemeProfile(word);
+  if (structured && (structured.roots.length > 0 || structured.prefixes.length > 0)) {
+    const out: ExtractedMorpheme[] = [];
+    const seen = new Set<string>();
+
+    for (const r of structured.roots) {
+      const id = r.canonicalId;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const canon = CANONICAL_BY_ID.get(id);
+      const cogSet = new Set<string>(canon?.cognateIds || []);
+      if (r.pieGroupId) {
+        const pieSiblings = PIE_GROUP_TO_ROOT_IDS.get(r.pieGroupId);
+        if (pieSiblings) {
+          for (const sib of pieSiblings) {
+            if (sib !== id) cogSet.add(sib);
+          }
+        }
+      }
+      out.push({
+        id,
+        displayRoot: canon?.displayRoot || r.displayRoot,
+        meaning: canon?.meaning || r.meaning,
+        origin: canon?.origin || r.origin,
+        isCanonical: true,
+        isPrefix: false,
+        cognateIds: cogSet.size > 0 ? Array.from(cogSet) : undefined,
+      });
+    }
+
+    for (const p of structured.prefixes) {
+      const id = p.canonicalId;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const canon = CANONICAL_BY_ID.get(id);
+      out.push({
+        id,
+        displayRoot: canon?.displayRoot || p.form,
+        meaning: canon?.meaning || p.meaning,
+        origin: canon?.origin || structured.roots[0]?.origin || lineage.rootOrigin,
+        isCanonical: true,
+        isPrefix: true,
+      });
+    }
+
+    if (out.length > 0) return out.slice(0, 5);
+  }
+
+  const ety = normalizeEtymologyQuotes(word.etymology || '');
   const canonicalMatches: ExtractedMorpheme[] = [];
 
   // 1. Canonical root & affix families
@@ -3360,18 +3426,24 @@ export function findWordsSharingMorpheme(
   if (morphemeIds.length === 0) return [];
   const targetSet = new Set(morphemeIds);
   const excludeLower = (excludeWord || '').toLowerCase();
-  const matches: { word: Word; sharedMorphemeId: string }[] = [];
+  const substantiveMatches: { word: Word; sharedMorphemeId: string }[] = [];
+  const prefixMatches: { word: Word; sharedMorphemeId: string }[] = [];
 
   for (const candidate of poolWords) {
     if (candidate.word.toLowerCase() === excludeLower) continue;
     const candidateMorphemes = extractWordMorphemes(candidate);
-    const shared = candidateMorphemes.find((m) => targetSet.has(m.id));
-    if (shared) {
-      matches.push({ word: candidate, sharedMorphemeId: shared.id });
+    const sharedSubstantive = candidateMorphemes.find((m) => !m.isPrefix && targetSet.has(m.id));
+    if (sharedSubstantive) {
+      substantiveMatches.push({ word: candidate, sharedMorphemeId: sharedSubstantive.id });
+      continue;
+    }
+    const sharedPrefix = candidateMorphemes.find((m) => m.isPrefix && targetSet.has(m.id));
+    if (sharedPrefix) {
+      prefixMatches.push({ word: candidate, sharedMorphemeId: sharedPrefix.id });
     }
   }
 
-  return matches;
+  return [...substantiveMatches, ...prefixMatches];
 }
 
 function normalizeClassical(str: string): string {
@@ -3389,175 +3461,111 @@ function normalizeClassical(str: string): string {
     .replace(/[^a-z]/g, '');
 }
 
-const ENGLISH_GLOSS_STOPWORDS = new Set([
-  'to', 'in', 'on', 'at', 'of', 'or', 'by', 'as', 'is', 'it', 'be', 'do',
-  'go', 'no', 'so', 'up', 'an', 'the', 'and', 'for', 'not', 'out', 'off',
-  'one', 'two', 'all', 'any', 'own', 'new', 'old', 'man', 'men', 'way',
-  'day', 'use', 'set', 'put', 'see', 'say', 'act', 'law', 'war', 'sea',
-  'sun', 'air', 'eye', 'ear', 'arm', 'leg', 'god', 'bad', 'big', 'far',
-  'low', 'few', 'lot', 'end', 'top', 'red', 'hot', 'dry', 'wet', 'raw',
-  'with', 'from', 'that', 'this', 'into', 'over', 'down', 'away', 'back',
-  'make', 'made', 'take', 'give', 'keep', 'hold', 'turn', 'come', 'came',
-  'move', 'walk', 'talk', 'look', 'feel', 'know', 'live', 'grow', 'flow',
-  'burn', 'show', 'lead', 'rule', 'work', 'play', 'rest', 'pain', 'care',
-  'love', 'fear', 'hope', 'mind', 'soul', 'life', 'body', 'hand', 'head',
-  'foot', 'face', 'word', 'name', 'time', 'year', 'part', 'form', 'side',
-  'line', 'room', 'home', 'land', 'city', 'town', 'tree', 'leaf', 'root',
-  'seed', 'soil', 'rock', 'wind', 'rain', 'fire', 'heat', 'cold', 'dark',
-  'good', 'well', 'high', 'long', 'full', 'free', 'true', 'pure', 'hard',
-  'soft', 'deep', 'wide', 'open', 'shut', 'fast', 'slow', 'late', 'same',
-  'more', 'most', 'less', 'very', 'much', 'many', 'some', 'such', 'each',
-  'both', 'like', 'just', 'only', 'also', 'even', 'still', 'ever', 'never',
-  'round', 'lake', 'sharp', 'clear', 'bright', 'favorable', 'gracious',
-]);
+const DERIVATION_SENTENCE_RX =
+  /^(?:from|derived\s+from|borrowed\s+from|directly\s+from|coined\b|based\s+on|ultimately\s+from|it\s+(?:comes|derives|stems|is\s+(?:formed|derived|compounded|borrowed))|the\s+word\s+(?:comes|derives|stems)|this\s+(?:word|term)\s+(?:comes|derives|stems)|literally\s+)/i;
 
-const NON_REVEALING_SUFFIXES = new Set([
-  'ious', 'eous', 'tion', 'sion', 'ment', 'ness', 'ance', 'ence',
-  'able', 'ible', 'ical', 'ular', 'less', 'full', 'ing', 'ate',
-  'ite', 'ent', 'ant', 'ive', 'ous', 'ish', 'ist', 'ism', 'ity',
-]);
-
-function isWordRevealing(
-  token: string,
-  targetWord: string,
-  isSingleQuotedRoot: boolean
-): boolean {
-  const cleanRaw = token.replace(/[^A-Za-zÀ-ÿ\u0100-\u017F]/g, '');
-  if (!cleanRaw || cleanRaw.length < 2) return false;
-
-  const lowerRaw = cleanRaw.toLowerCase();
-  const lowerTarget = targetWord.toLowerCase().replace(/[^a-z]/g, '');
-
-  const normTok = normalizeClassical(cleanRaw);
-  const normTarget = normalizeClassical(targetWord);
-
-  if (!normTok || normTok.length < 2) return false;
-  if (lowerRaw === lowerTarget || normTok === normTarget) return true;
-
-  if (isSingleQuotedRoot) {
-    if (ENGLISH_GLOSS_STOPWORDS.has(lowerRaw)) {
-      if (lowerRaw.length >= 4 && lowerTarget.includes(lowerRaw)) return true;
-      return false;
-    }
-    if (normTok.length >= 2 && normTarget.includes(normTok)) return true;
-    if (normTarget.length >= 3 && normTok.includes(normTarget)) return true;
+function splitEtymologySentences(text: string): string[] {
+  const s = (text || '').trim();
+  if (!s) return [];
+  const parts: string[] = [];
+  let start = 0;
+  const rx = /([.!?])\s+(?=[A-Z"'“‘])/g;
+  let m: RegExpExecArray | null;
+  while ((m = rx.exec(s)) !== null) {
+    const before = s.slice(start, m.index + 1);
     if (
-      normTok.length >= 3 &&
-      normTarget.length >= 3 &&
-      normTok.slice(0, 3) === normTarget.slice(0, 3)
+      /(?:^|\s)(?:c|ca|e\.g|i\.e|vs|st|dr|mr|mrs|vol|no|ch|lit|fig)\.$/.test(
+        before.toLowerCase()
+      )
     ) {
-      return true;
+      continue;
     }
-    for (let i = 0; i <= normTok.length - 3; i++) {
-      const sub = normTok.slice(i, i + 3);
-      if (NON_REVEALING_SUFFIXES.has(sub)) continue;
-      if (normTarget.includes(sub)) return true;
-    }
-    return false;
-  } else {
-    if (ENGLISH_GLOSS_STOPWORDS.has(lowerRaw)) {
-      if (lowerRaw.length >= 4 && lowerTarget.includes(lowerRaw)) return true;
-      return false;
-    }
-    if (normTok.length >= 4 && normTarget.includes(normTok)) return true;
-    if (
-      normTarget.length >= 4 &&
-      normTok.includes(normTarget.slice(0, Math.max(4, normTarget.length - 2)))
-    ) {
-      return true;
-    }
-    if (
-      normTok.length >= 4 &&
-      normTarget.length >= 4 &&
-      normTok.slice(0, 4) === normTarget.slice(0, 4)
-    ) {
-      return true;
-    }
-    if (/^[A-Z]/.test(cleanRaw) && normTok.length >= 4) {
-      for (let i = 0; i <= normTok.length - 4; i++) {
-        if (normTarget.includes(normTok.slice(i, i + 4))) return true;
-      }
-    }
-    if (normTok.length >= 5 && normTarget.length >= 6) {
-      for (let i = 0; i <= normTok.length - 5; i++) {
-        const sub = normTok.slice(i, i + 5);
-        if (
-          ![
-            'ation', 'ition', 'usion', 'ment', 'ence', 'ance',
-            'ness', 'able', 'ible', 'ical', 'ious', 'eous', 'ular',
-          ].includes(sub)
-        ) {
-          if (normTarget.includes(sub)) return true;
-        }
-      }
-    }
-    return false;
+    parts.push(before.trim());
+    start = rx.lastIndex;
   }
+  const tail = s.slice(start).trim();
+  if (tail) parts.push(tail);
+  return parts;
+}
+
+function redactDirectSpoilersInStory(prose: string, targetWord: string): string {
+  const clean = targetWord.toLowerCase().replace(/[^a-z]/g, '');
+  if (!clean || clean.length < 3) return prose;
+
+  const stem = clean.length > 4 ? clean.replace(/(?:e|y|ing|ed|es|s)$/i, '') : clean;
+  const stemRx = new RegExp(`\\b${stem}[a-z'-]*\\b`, 'gi');
+  let out = prose.replace(stemRx, '••••');
+
+  const normTarget = normalizeClassical(targetWord);
+  if (normTarget.length >= 4) {
+    out = out.replace(/'([^']+)'/g, (full, inner: string) => {
+      const tokens = inner.trim().split(/\s+/);
+      if (tokens.length > 2) return full;
+      const spoils = tokens.some((tok) => {
+        const nt = normalizeClassical(tok);
+        if (nt.length < 4) return false;
+        const prefixLen = Math.min(nt.length, normTarget.length, 4);
+        return (
+          normTarget.includes(nt) ||
+          nt.includes(normTarget.slice(0, Math.max(4, normTarget.length - 2))) ||
+          nt.slice(0, prefixLen) === normTarget.slice(0, prefixLen)
+        );
+      });
+      return spoils ? "'••••'" : full;
+    });
+  }
+
+  return out;
 }
 
 /**
- * Produces a spoiler-safe Etymology Hint for Botanist's Field Notes:
- * Redacts any foreign root word, prefix, cognate, or proper noun that shares a
- * revealing root/stem with the target word (replacing it with '[•••]'), while
- * preserving the literal root meanings in parentheses and the historical origin story.
+ * Produces a clean, spoiler-safe Etymology Hint without excessive `[•••]` masking:
+ * Combines the literal meanings of the word's prefixes & roots with the historical/cultural
+ * origin story (omitting the opening foreign-spelling derivation clause).
  */
 export function getSafeEtymologyHint(word: Word): string {
-  let text = word.etymology || '';
-  if (!text) return `Originates from ${word.origin}.`;
+  const profile = getWordMorphemeProfile(word);
+  const literalParts: string[] = [];
 
-  // 1. Protect parenthetical English translations so they use unquoted prose rules
-  const parens: string[] = [];
-  text = text.replace(/\(([^)]+)\)/g, (_match, inner: string) => {
-    const maskedInner = inner.replace(
-      /\b([A-Za-zÀ-ÿ\u0100-\u017F-]{2,})\b/g,
-      (w: string) => (isWordRevealing(w, word.word, false) ? '[•••]' : w)
-    );
-    parens.push(`(${maskedInner})`);
-    return `__PAREN_${parens.length - 1}__`;
-  });
-
-  // 2. Process single-quoted root words and phrases
-  text = text.replace(/'([^']+)'/g, (_match, inner: string) => {
-    const wordsInQuote = inner.trim().split(/\s+/);
-    const isMultiWordGloss = wordsInQuote.length >= 2;
-    let maskedCount = 0;
-    let totalWords = 0;
-    const replaced = inner.replace(
-      /([A-Za-zÀ-ÿ\u0100-\u017F-]{2,})/g,
-      (w: string) => {
-        totalWords++;
-        if (
-          isWordRevealing(
-            w,
-            word.word,
-            !isMultiWordGloss || wordsInQuote.length <= 2
-          )
-        ) {
-          maskedCount++;
-          return '[•••]';
-        }
-        return w;
-      }
-    );
-    if (totalWords > 0 && maskedCount === totalWords) {
-      return "'[•••]'";
+  if (profile) {
+    for (const p of profile.prefixes) {
+      const m = p.meaning.split(',')[0].trim();
+      if (m) literalParts.push(`"${m}"`);
     }
-    return `'${replaced}'`;
-  });
-
-  // 3. Process remaining unquoted words in prose
-  text = text.replace(/\b([A-Za-zÀ-ÿ\u0100-\u017F-]{3,})\b/g, (match: string) => {
-    if (match.startsWith('__PAREN_')) return match;
-    if (isWordRevealing(match, word.word, false)) {
-      return '[•••]';
+    for (const r of profile.roots) {
+      const chunks = r.meaning
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
+      const m = chunks.slice(0, (chunks[0]?.length ?? 99) < 8 ? 2 : 1).join(' / ');
+      if (m) literalParts.push(`"${m}"`);
     }
-    return match;
-  });
+  }
 
-  // 4. Restore parentheticals
-  text = text.replace(/__PAREN_(\d+)__/g, (_m, idx) => parens[Number(idx)]);
+  const rootOrigin = profile?.roots?.[0]?.origin || word.origin || 'classical roots';
+  const lead =
+    literalParts.length > 0
+      ? `${rootOrigin} ${literalParts.length === 1 ? 'root' : 'roots'}: ${literalParts.join(' + ')}.`
+      : `Rooted in ${rootOrigin}.`;
 
-  return text;
+  const sents = splitEtymologySentences(word.etymology || '');
+  let idx = 0;
+  while (idx < sents.length && (idx === 0 || DERIVATION_SENTENCE_RX.test(sents[idx]))) {
+    if (
+      idx > 0 &&
+      !/'[^']+'/.test(sents[idx]) &&
+      !/^it\s+(?:comes|derives|stems|is\s+(?:formed|derived|compounded))/i.test(sents[idx])
+    ) {
+      break;
+    }
+    idx++;
+  }
+
+  const storyRaw = sents.slice(idx).join(' ').trim();
+  if (!storyRaw) return lead;
+
+  const storyClean = redactDirectSpoilersInStory(storyRaw, word.word);
+  return `${lead} ${storyClean}`;
 }
 
 /**

@@ -6,17 +6,26 @@ import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerSupabaseClient } from '../../../utils/supabase/server';
 import { Word, SeedType, DifficultyTier, TopicCategory } from '../../../types';
 import { RAW_WORDS as BUNDLED_RAW_WORDS } from '../../../utils/data';
+import {
+  WORD_MORPHEMES as BUNDLED_WORD_MORPHEMES,
+  WordMorphemeProfile,
+} from '../../../utils/morphemes';
+import { extractWordMorphemes } from '../../../utils/etymology';
+import { findSimilarLexiconWords } from '../../../utils/wordSimilarity';
 import { getWordDifficulty, getWordTopic } from '../../../constants';
 
 export const dynamic = 'force-dynamic';
 
 let memoryWordsCache: Word[] | null = null;
+let memoryMorphemesCache: Record<string, WordMorphemeProfile> | null = null;
 let memoryStagedCache: (Word & { id: string })[] | null = null;
 let diskWordsWriteFailed = false;
+let diskMorphemesWriteFailed = false;
 let diskStagedWriteFailed = false;
 let warnedMissingServiceRole = false;
 
 const DATA_TS_PATH = path.join(process.cwd(), 'utils', 'data.ts');
+const MORPHEMES_TS_PATH = path.join(process.cwd(), 'utils', 'morphemes.ts');
 const LEGACY_DATA_TS_PATH = path.join(process.cwd(), '..', 'growcabulary', 'utils', 'data.ts');
 const STAGED_JSON_PATH = path.join(
   process.cwd(),
@@ -29,6 +38,7 @@ export interface AuditedWord extends Word {
   index: number;
   auditFlags: string[];
   maskedPreview: string;
+  morphemes?: WordMorphemeProfile;
 }
 
 // Curated reserve pool of high-caliber candidates when regenerating without an API key
@@ -167,6 +177,159 @@ const RESERVE_CANDIDATE_POOL: Word[] = [
   },
 ];
 
+function readMorphemesFromDisk(): Record<string, WordMorphemeProfile> {
+  if (diskMorphemesWriteFailed && memoryMorphemesCache) {
+    return { ...memoryMorphemesCache };
+  }
+  try {
+    const fileContent = fs.readFileSync(MORPHEMES_TS_PATH, 'utf8');
+    const objMatch = fileContent.match(/export\s+const\s+WORD_MORPHEMES[\s\S]*?=\s*(\{[\s\S]*?\n\});/);
+    if (objMatch) {
+      const parsed = vm.runInNewContext(`(${objMatch[1]})`, {}) as Record<
+        string,
+        WordMorphemeProfile
+      >;
+      if (parsed && typeof parsed === 'object') {
+        memoryMorphemesCache = { ...parsed };
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('Falling back to bundled/in-memory WORD_MORPHEMES:', err);
+  }
+  return memoryMorphemesCache ? { ...memoryMorphemesCache } : { ...BUNDLED_WORD_MORPHEMES };
+}
+
+function writeMorphemesToDisk(morphemesMap: Record<string, WordMorphemeProfile>) {
+  memoryMorphemesCache = { ...morphemesMap };
+  const serialized = `import { Word } from '../types';
+
+export interface WordMorphemePrefix {
+  form: string;
+  canonicalId: string;
+  meaning: string;
+}
+
+export interface WordMorphemeRoot {
+  form: string;
+  canonicalId: string;
+  displayRoot: string;
+  meaning: string;
+  origin: string;
+  pieRoot?: string;
+  pieGroupId?: string;
+}
+
+export interface WordMorphemeSuffix {
+  form: string;
+  meaning: string;
+}
+
+export interface WordMorphemeProfile {
+  prefixes: WordMorphemePrefix[];
+  roots: WordMorphemeRoot[];
+  suffixes: WordMorphemeSuffix[];
+}
+
+export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = ${JSON.stringify(morphemesMap, null, 2)};
+
+export function getWordMorphemeProfile(
+  wordOrKey: string | Pick<Word, 'word'>
+): WordMorphemeProfile | undefined {
+  const key = (typeof wordOrKey === 'string' ? wordOrKey : wordOrKey.word).toLowerCase();
+  return WORD_MORPHEMES[key];
+}
+`;
+  try {
+    fs.writeFileSync(MORPHEMES_TS_PATH, serialized, 'utf8');
+    diskMorphemesWriteFailed = false;
+  } catch (err) {
+    diskMorphemesWriteFailed = true;
+    console.warn('Read-only filesystem: skipped writing utils/morphemes.ts to disk', err);
+  }
+}
+
+function normalizePieGroupId(pieRoot: string | undefined | null): string | undefined {
+  if (!pieRoot) return undefined;
+  let s = pieRoot.split('/')[0].trim();
+  s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  s = s.replace(/[₁₂₃₄]/g, '');
+  s = s.replace(/ʰ/g, 'h').replace(/ʷ/g, 'w').replace(/ǵ/g, 'g').replace(/ḱ/g, 'k');
+  s = s.replace(/m̥|n̥|r̥/g, (ch) => ch[0]);
+  s = s.replace(/[()*\s-]/g, '').toLowerCase();
+  s = s.replace(/h[123]/g, 'h');
+  return s.length >= 2 ? `pie:${s}` : undefined;
+}
+
+async function generateMorphemeProfileForWord(
+  word: Word,
+  apiKey: string | undefined,
+  existingMap: Record<string, WordMorphemeProfile>
+): Promise<WordMorphemeProfile> {
+  const resolvedKey = resolveGeminiKey(apiKey);
+  if (resolvedKey && word.etymology?.trim()) {
+    try {
+      const sampleCanonIds = new Set<string>();
+      for (const prof of Object.values(existingMap)) {
+        for (const r of prof.roots || []) {
+          if (r.canonicalId) sampleCanonIds.add(r.canonicalId);
+        }
+      }
+      const prompt = `Decompose "${word.word}" (origin: ${word.origin}) into accurate etymological morphemes grounded strictly in this etymology:
+"${word.etymology}"
+
+Return ONLY a valid JSON object:
+{
+  "prefixes": [{"form": "e.g. con-", "canonicalId": "e.g. prefix-com", "meaning": "..."}],
+  "roots": [{"form": "stem", "canonicalId": "lowercase lemma e.g. facere or regere", "displayRoot": "e.g. facere / fect-", "meaning": "...", "origin": "Latin/Greek/etc.", "pieRoot": "*...-" or null}],
+  "suffixes": [{"form": "e.g. -ity", "meaning": "..."}]
+}
+Reuse canonical prefix IDs like prefix-ab, prefix-ad, prefix-ante, prefix-anti, prefix-com, prefix-de, prefix-dia, prefix-dis, prefix-ex, prefix-in, prefix-inter, prefix-ob, prefix-per, prefix-pre, prefix-pro, prefix-re, prefix-sub, prefix-super, prefix-syn, prefix-trans, prefix-a.
+Reuse matching existing canonical root IDs when applicable: ${Array.from(sampleCanonIds).slice(0, 140).join(', ')}.`;
+      const rawJson = await generateGeminiJsonText(resolvedKey, prompt, 15000);
+      const parsed = parseJsonSafe<Partial<WordMorphemeProfile>>(rawJson, {});
+      if (Array.isArray(parsed.roots) && parsed.roots.length > 0) {
+        return {
+          prefixes: Array.isArray(parsed.prefixes) ? parsed.prefixes : [],
+          roots: parsed.roots.map((r) => {
+            const pieGroupId = normalizePieGroupId(r.pieRoot);
+            return {
+              form: r.form || word.word.toLowerCase(),
+              canonicalId: (r.canonicalId || word.word).toLowerCase().trim(),
+              displayRoot: r.displayRoot || r.canonicalId || word.word.toLowerCase(),
+              meaning: r.meaning || '',
+              origin: r.origin || word.origin || 'Latin',
+              ...(r.pieRoot ? { pieRoot: r.pieRoot } : {}),
+              ...(pieGroupId ? { pieGroupId } : {}),
+            };
+          }),
+          suffixes: Array.isArray(parsed.suffixes) ? parsed.suffixes : [],
+        };
+      }
+    } catch (err) {
+      console.warn(`Morpheme generation fallback for "${word.word}":`, err);
+    }
+  }
+
+  // Fallback: extract via narrative heuristics in utils/etymology.ts
+  const extracted = extractWordMorphemes(word);
+  return {
+    prefixes: extracted
+      .filter((m) => m.isPrefix)
+      .map((m) => ({ form: m.displayRoot, canonicalId: m.id, meaning: m.meaning })),
+    roots: extracted
+      .filter((m) => !m.isPrefix && !m.id.startsWith('lex:'))
+      .map((m) => ({
+        form: m.displayRoot.split('/')[0].trim(),
+        canonicalId: m.id.replace(/^root:/, ''),
+        displayRoot: m.displayRoot,
+        meaning: m.meaning,
+        origin: m.origin || word.origin,
+      })),
+    suffixes: [],
+  };
+}
+
 function readRawWordsFromDisk(): Word[] {
   if (diskWordsWriteFailed && memoryWordsCache) {
     return [...memoryWordsCache];
@@ -271,12 +434,16 @@ function maskWordInExample(example: string, word: string): string {
   });
 }
 
-function auditWords(words: Word[]): AuditedWord[] {
+function auditWords(
+  words: Word[],
+  morphemesMap?: Record<string, WordMorphemeProfile>
+): AuditedWord[] {
   const counts = new Map<string, number>();
   words.forEach((w) => {
     const key = w.word.trim().toLowerCase();
     counts.set(key, (counts.get(key) || 0) + 1);
   });
+  const resolvedMorphemes = morphemesMap || readMorphemesFromDisk();
 
   return words.map((w, index) => {
     const flags: string[] = [];
@@ -298,11 +465,17 @@ function auditWords(words: Word[]): AuditedWord[] {
       flags.push('short-etymology');
     }
 
+    const morph = resolvedMorphemes[lowerKey];
+    if (!morph || (!morph.roots?.length && !morph.prefixes?.length)) {
+      flags.push('missing-morphemes');
+    }
+
     return {
       ...w,
       index,
       auditFlags: flags,
       maskedPreview,
+      morphemes: morph,
     };
   });
 }
@@ -599,6 +772,16 @@ async function syncWordToSupabase(w: Word, previousWordTerm?: string) {
       }
     }
 
+    // Remove any stale rows for this term in other difficulty decks if tier changed
+    const { error: staleDeckErr } = await supabase
+      .from('words')
+      .delete()
+      .ilike('term', w.word)
+      .neq('deck_id', deckRow.id);
+    if (staleDeckErr) {
+      console.warn('Supabase stale deck cleanup failed:', staleDeckErr.message);
+    }
+
     const { error: upsertErr } = await supabase.from('words').upsert(
       {
         deck_id: deckRow.id,
@@ -625,7 +808,10 @@ async function deleteWordFromSupabase(term: string) {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
   try {
-    await supabase.from('words').delete().ilike('term', term);
+    await Promise.all([
+      supabase.from('words').delete().ilike('term', term),
+      supabase.from('user_word_progress').delete().ilike('word_term', term),
+    ]);
   } catch {
     // Non-blocking cloud delete
   }
@@ -870,20 +1056,29 @@ Return ONLY a valid JSON object:
           const rawJsonText = await generateGeminiJsonText(resolvedKey, prompt, 22000);
           const enriched = parseJsonSafe<Partial<Word>>(rawJsonText, {});
           if (enriched.definition && enriched.etymology) {
+            const enrichedWordObj: Word = {
+              word: enriched.word || cleanTerm,
+              seed: getWordDifficulty({ seed: enriched.seed || fallbackDifficulty }),
+              topic: getWordTopic({ topic: enriched.topic || fallbackTopic }),
+              form: enriched.form || 'noun',
+              definition: enriched.definition || '',
+              definition2: enriched.definition2 || '',
+              etymology: enriched.etymology || '',
+              example: enriched.example || '',
+              fieldQuote: enriched.fieldQuote || '',
+              fieldQuoteAuthor: enriched.fieldQuoteAuthor || '',
+              origin: enriched.origin || 'Latin',
+            };
+            const morphemesMap = readMorphemesFromDisk();
+            const enrichedMorphemes = await generateMorphemeProfileForWord(
+              enrichedWordObj,
+              apiKey,
+              morphemesMap
+            );
             return NextResponse.json({
-              enriched: {
-                word: enriched.word || cleanTerm,
-                seed: getWordDifficulty({ seed: enriched.seed || fallbackDifficulty }),
-                topic: getWordTopic({ topic: enriched.topic || fallbackTopic }),
-                form: enriched.form || 'noun',
-                definition: enriched.definition || '',
-                definition2: enriched.definition2 || '',
-                etymology: enriched.etymology || '',
-                example: enriched.example || '',
-                fieldQuote: enriched.fieldQuote || '',
-                fieldQuoteAuthor: enriched.fieldQuoteAuthor || '',
-                origin: enriched.origin || 'Latin',
-              },
+              enriched: enrichedWordObj,
+              enrichedMorphemes,
+              similarWords: findSimilarLexiconWords(enrichedWordObj.word, words),
               source: 'gemini',
             });
           }
@@ -1021,10 +1216,13 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
           const rawJsonText = await generateGeminiJsonText(resolvedKey, candidatePrompt, 28000);
           const parsed = parseJsonSafe<Word[]>(rawJsonText, []);
           newCandidates = (Array.isArray(parsed) ? parsed : [])
-            .filter(
-              (item: { word?: string }) =>
-                item.word && !blacklist.has(item.word.toLowerCase())
-            )
+            .filter((item: { word?: string }) => {
+              if (!item.word) return false;
+              const lower = item.word.toLowerCase();
+              if (blacklist.has(lower)) return false;
+              const sim = findSimilarLexiconWords(item.word, words);
+              return !sim.some((m) => m.matchType === 'exact' || m.matchType === 'morphological');
+            })
             .map((item: Word, idx: number) => ({
               id: `staged-${Date.now()}-${idx}`,
               word: item.word,
@@ -1099,15 +1297,47 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
       origin: input.origin.trim(),
     });
 
+    const apiKeyFromBody =
+      typeof (body as { apiKey?: string }).apiKey === 'string'
+        ? (body as { apiKey?: string }).apiKey
+        : undefined;
+    const morphemesMap = readMorphemesFromDisk();
+
     if (action === 'update_word') {
-      const { index, updatedWord } = body as { index: number; updatedWord: Word };
+      const { index, updatedWord, morphemes } = body as {
+        index: number;
+        updatedWord: Word;
+        morphemes?: WordMorphemeProfile;
+      };
       if (index < 0 || index >= words.length) {
         return NextResponse.json({ error: 'Invalid word index' }, { status: 400 });
       }
-      const prevTerm = words[index].word;
+      const prevWord = words[index];
+      const prevTerm = prevWord.word;
       const cleanUpdated = sanitizeWordInput(updatedWord);
       words[index] = cleanUpdated;
       writeRawWordsToDisk(words);
+
+      const oldKey = prevTerm.toLowerCase();
+      const newKey = cleanUpdated.word.toLowerCase();
+      if (oldKey !== newKey) {
+        delete morphemesMap[oldKey];
+      }
+      const needsRegen =
+        oldKey !== newKey ||
+        prevWord.etymology.trim() !== cleanUpdated.etymology.trim() ||
+        !morphemesMap[newKey];
+      if (morphemes && (morphemes.roots?.length || morphemes.prefixes?.length)) {
+        morphemesMap[newKey] = morphemes;
+      } else if (needsRegen) {
+        morphemesMap[newKey] = await generateMorphemeProfileForWord(
+          cleanUpdated,
+          apiKeyFromBody,
+          morphemesMap
+        );
+      }
+      writeMorphemesToDisk(morphemesMap);
+
       await syncWordToSupabase(cleanUpdated, prevTerm);
     } else if (action === 'delete_word') {
       const { index } = body as { index: number };
@@ -1117,26 +1347,110 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
       const removed = words.splice(index, 1)[0];
       writeRawWordsToDisk(words);
       if (removed?.word) {
+        delete morphemesMap[removed.word.toLowerCase()];
+        writeMorphemesToDisk(morphemesMap);
         await deleteWordFromSupabase(removed.word);
       }
     } else if (action === 'add_word') {
-      const { newWord } = body as { newWord: Word };
+      const { newWord, morphemes, allowSimilar } = body as {
+        newWord: Word;
+        morphemes?: WordMorphemeProfile;
+        allowSimilar?: boolean;
+      };
       const cleanNew = sanitizeWordInput(newWord);
+      const similarMatches = findSimilarLexiconWords(cleanNew.word, words);
+      const exactMatch = similarMatches.find((m) => m.matchType === 'exact');
+      if (exactMatch) {
+        return NextResponse.json(
+          {
+            error: `"${cleanNew.word}" is already in the lexicon (${exactMatch.form}).`,
+            similarMatches,
+          },
+          { status: 409 }
+        );
+      }
+      if (similarMatches.length > 0 && !allowSimilar) {
+        return NextResponse.json(
+          {
+            error: `"${cleanNew.word}" closely resembles existing lexicon word(s): ${similarMatches
+              .map((s) => `${s.word} (${s.reason})`)
+              .join('; ')}.`,
+            similarMatches,
+            requiresConfirmation: true,
+          },
+          { status: 409 }
+        );
+      }
+
       words.push(cleanNew);
       writeRawWordsToDisk(words);
+
+      const profile =
+        morphemes && (morphemes.roots?.length || morphemes.prefixes?.length)
+          ? morphemes
+          : await generateMorphemeProfileForWord(cleanNew, apiKeyFromBody, morphemesMap);
+      morphemesMap[cleanNew.word.toLowerCase()] = profile;
+      writeMorphemesToDisk(morphemesMap);
+
       await syncWordToSupabase(cleanNew);
     } else if (action === 'approve_staged') {
-      const { stagedId, approvedWord } = body as {
+      const { stagedId, approvedWord, morphemes, allowSimilar } = body as {
         stagedId: string;
         approvedWord: Word;
+        morphemes?: WordMorphemeProfile;
+        allowSimilar?: boolean;
       };
       const cleanApproved = sanitizeWordInput(approvedWord);
+      const similarMatches = findSimilarLexiconWords(cleanApproved.word, words);
+      const exactMatch = similarMatches.find((m) => m.matchType === 'exact');
+      if (exactMatch) {
+        return NextResponse.json(
+          {
+            error: `"${cleanApproved.word}" is already in the lexicon (${exactMatch.form}).`,
+            similarMatches,
+          },
+          { status: 409 }
+        );
+      }
+      if (similarMatches.length > 0 && !allowSimilar) {
+        return NextResponse.json(
+          {
+            error: `"${cleanApproved.word}" closely resembles existing lexicon word(s): ${similarMatches
+              .map((s) => `${s.word} (${s.reason})`)
+              .join('; ')}.`,
+            similarMatches,
+            requiresConfirmation: true,
+          },
+          { status: 409 }
+        );
+      }
+
       words.push(cleanApproved);
       writeRawWordsToDisk(words);
+
+      const profile =
+        morphemes && (morphemes.roots?.length || morphemes.prefixes?.length)
+          ? morphemes
+          : await generateMorphemeProfileForWord(cleanApproved, apiKeyFromBody, morphemesMap);
+      morphemesMap[cleanApproved.word.toLowerCase()] = profile;
+      writeMorphemesToDisk(morphemesMap);
+
       await syncWordToSupabase(cleanApproved);
 
       const staged = readStagedWords().filter((sw) => sw.id !== stagedId);
       writeStagedWords(staged);
+    } else if (action === 'regenerate_morphemes') {
+      const { index } = body as { index: number };
+      if (index < 0 || index >= words.length) {
+        return NextResponse.json({ error: 'Invalid word index' }, { status: 400 });
+      }
+      const target = words[index];
+      morphemesMap[target.word.toLowerCase()] = await generateMorphemeProfileForWord(
+        target,
+        apiKeyFromBody,
+        morphemesMap
+      );
+      writeMorphemesToDisk(morphemesMap);
     } else if (action === 'reject_staged') {
       const { stagedId } = body as { stagedId: string };
       const staged = readStagedWords().filter((sw) => sw.id !== stagedId);

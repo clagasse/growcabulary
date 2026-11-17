@@ -14,6 +14,8 @@ import {
 } from '../../constants';
 import { getSafeEtymologyHint } from '../../utils/etymology';
 import { CURATED_FIELD_QUOTES } from '../../utils/fieldQuotes';
+import { WordMorphemeProfile } from '../../utils/morphemes';
+import { findSimilarLexiconWords } from '../../utils/wordSimilarity';
 import {
   ArrowLeft,
   Search,
@@ -36,6 +38,7 @@ interface AuditedWord extends Word {
   index: number;
   auditFlags: string[];
   maskedPreview: string;
+  morphemes?: WordMorphemeProfile;
 }
 
 interface StagedWord extends Word {
@@ -99,6 +102,8 @@ export default function CuratorStudioPage() {
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedStagedId, setSelectedStagedId] = useState<string | null>(null);
+  const [formMorphemes, setFormMorphemes] = useState<WordMorphemeProfile | null>(null);
+  const [regenMorphemesLoading, setRegenMorphemesLoading] = useState(false);
 
   const [formState, setFormState] = useState<Word>({
     word: '',
@@ -162,6 +167,7 @@ export default function CuratorStudioPage() {
         if (selectedIndex === null && data.words.length > 0) {
           setSelectedIndex(data.words[0].index);
           setFormState(data.words[0]);
+          setFormMorphemes(data.words[0].morphemes || null);
         }
       }
     } catch (e) {
@@ -211,7 +217,8 @@ export default function CuratorStudioPage() {
   }, [words]);
 
   const filteredWords = useMemo(() => {
-    return words.filter((w) => {
+    const q = searchQuery.trim().toLowerCase();
+    const matched = words.filter((w) => {
       if (difficultyFilter !== 'all' && getWordDifficulty(w) !== difficultyFilter) return false;
       if (topicFilter !== 'all' && getWordTopic(w) !== topicFilter) return false;
       if (auditFilter === 'any-flag' && w.auditFlags.length === 0) return false;
@@ -222,24 +229,55 @@ export default function CuratorStudioPage() {
       ) {
         return false;
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (q) {
+        const morphMatch =
+          w.morphemes?.prefixes.some(
+            (p) =>
+              p.form.toLowerCase().includes(q) ||
+              p.canonicalId.toLowerCase().includes(q) ||
+              p.meaning.toLowerCase().includes(q)
+          ) ||
+          w.morphemes?.roots.some(
+            (r) =>
+              r.form.toLowerCase().includes(q) ||
+              r.canonicalId.toLowerCase().includes(q) ||
+              r.displayRoot.toLowerCase().includes(q) ||
+              r.meaning.toLowerCase().includes(q) ||
+              (r.pieRoot && r.pieRoot.toLowerCase().includes(q))
+          );
+
         return (
           w.word.toLowerCase().includes(q) ||
           w.definition.toLowerCase().includes(q) ||
           (w.definition2 && w.definition2.toLowerCase().includes(q)) ||
           w.etymology.toLowerCase().includes(q) ||
           w.example.toLowerCase().includes(q) ||
-          w.origin.toLowerCase().includes(q)
+          (w.fieldQuote && w.fieldQuote.toLowerCase().includes(q)) ||
+          (w.fieldQuoteAuthor && w.fieldQuoteAuthor.toLowerCase().includes(q)) ||
+          w.origin.toLowerCase().includes(q) ||
+          Boolean(morphMatch)
         );
       }
       return true;
+    });
+
+    if (!q) return matched;
+
+    // Prioritize exact headword -> prefix headword -> substring headword -> rest
+    return [...matched].sort((a, b) => {
+      const aw = a.word.toLowerCase();
+      const bw = b.word.toLowerCase();
+      const rank = (s: string) =>
+        s === q ? 0 : s.startsWith(q) ? 1 : s.includes(q) ? 2 : 3;
+      const diff = rank(aw) - rank(bw);
+      return diff !== 0 ? diff : aw.localeCompare(bw);
     });
   }, [words, difficultyFilter, topicFilter, auditFilter, searchQuery]);
 
   const handleSelectLiveWord = (item: AuditedWord) => {
     setActiveTab('live');
     setSelectedIndex(item.index);
+    setFormMorphemes(item.morphemes || null);
     const curatedQuote = CURATED_FIELD_QUOTES[item.word.toLowerCase()];
     setFormState({
       word: item.word,
@@ -260,6 +298,7 @@ export default function CuratorStudioPage() {
   const handleSelectStagedWord = (item: StagedWord) => {
     setActiveTab('staged');
     setSelectedStagedId(item.id);
+    setFormMorphemes(null);
     const curatedQuote = CURATED_FIELD_QUOTES[item.word.toLowerCase()];
     setFormState({
       word: item.word,
@@ -281,6 +320,7 @@ export default function CuratorStudioPage() {
     setActiveTab('new');
     setSelectedIndex(null);
     setSelectedStagedId(null);
+    setFormMorphemes(null);
     setFormState({
       word: '',
       seed: difficultyFilter === 'all' ? 'garden' : difficultyFilter,
@@ -343,11 +383,14 @@ export default function CuratorStudioPage() {
           fieldQuoteAuthor: data.enriched.fieldQuoteAuthor ?? prev.fieldQuoteAuthor,
           origin: data.enriched.origin || prev.origin,
         }));
+        if (data.enrichedMorphemes) {
+          setFormMorphemes(data.enrichedMorphemes);
+        }
         setBanner({
           type: 'success',
           text:
             data.source === 'gemini'
-              ? `✨ Populated definitions, etymology, origin, and example for "${targetWord}" via Gemini AI!`
+              ? `✨ Populated definitions, etymology, morphemes, origin, and example for "${targetWord}" via Gemini AI!`
               : data.warning
               ? `✨ Populated fields for "${targetWord}" via ${data.source} (Gemini note: ${data.warning})`
               : `✨ Populated fields for "${targetWord}" (${data.source}).`,
@@ -454,20 +497,55 @@ export default function CuratorStudioPage() {
           action: 'update_word',
           index: selectedIndex,
           updatedWord: formState,
+          morphemes: formMorphemes || undefined,
+          apiKey: clientApiKey,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save');
       setWords(data.words);
+      const updatedItem = (data.words as AuditedWord[]).find((w) => w.index === selectedIndex);
+      if (updatedItem) setFormMorphemes(updatedItem.morphemes || null);
       setBanner({
         type: 'success',
-        text: `Saved "${formState.word}" to utils/data.ts!`,
+        text: `Saved "${formState.word}" (and updated morphemes) to utils/data.ts & utils/morphemes.ts!`,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Save failed';
       setBanner({ type: 'error', text: msg });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRegenerateMorphemes = async () => {
+    if (selectedIndex === null) return;
+    setRegenMorphemesLoading(true);
+    setBanner(null);
+    try {
+      const res = await fetch('/api/curator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'regenerate_morphemes',
+          index: selectedIndex,
+          apiKey: clientApiKey,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to regenerate morphemes');
+      setWords(data.words);
+      const updatedItem = (data.words as AuditedWord[]).find((w) => w.index === selectedIndex);
+      if (updatedItem) setFormMorphemes(updatedItem.morphemes || null);
+      setBanner({
+        type: 'success',
+        text: `Regenerated morpheme breakdown for "${formState.word}" in utils/morphemes.ts!`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Regeneration failed';
+      setBanner({ type: 'error', text: msg });
+    } finally {
+      setRegenMorphemesLoading(false);
     }
   };
 
@@ -508,7 +586,7 @@ export default function CuratorStudioPage() {
     }
   };
 
-  const handleAddNewWord = async () => {
+  const handleAddNewWord = async (allowSimilar: boolean = false) => {
     if (!formState.word.trim() || !formState.definition.trim()) {
       setBanner({
         type: 'error',
@@ -524,16 +602,34 @@ export default function CuratorStudioPage() {
         body: JSON.stringify({
           action: 'add_word',
           newWord: formState,
+          morphemes: formMorphemes || undefined,
+          allowSimilar,
+          apiKey: clientApiKey,
         }),
       });
       const data = await res.json();
+      if (res.status === 409 && data.requiresConfirmation && !allowSimilar) {
+        setSaving(false);
+        if (window.confirm(`${data.error}\n\nAre you sure you want to add "${formState.word}" anyway?`)) {
+          return handleAddNewWord(true);
+        }
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to add word');
-      setWords(data.words);
+      const updatedList = data.words as AuditedWord[];
+      setWords(updatedList);
+      const created = updatedList.find(
+        (w) => w.word.toLowerCase() === formState.word.trim().toLowerCase()
+      );
+      if (created) {
+        handleSelectLiveWord(created);
+      } else {
+        setActiveTab('live');
+      }
       setBanner({
         type: 'success',
-        text: `Added "${formState.word}" (${getDifficultyMeta(formState).label} • ${getTopicMeta(formState).label}) to utils/data.ts!`,
+        text: `Added "${formState.word}" (${getDifficultyMeta(formState).label} • ${getTopicMeta(formState).label}) with morphemes!`,
       });
-      setActiveTab('live');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Add failed';
       setBanner({ type: 'error', text: msg });
@@ -542,7 +638,7 @@ export default function CuratorStudioPage() {
     }
   };
 
-  const handleApproveStaged = async () => {
+  const handleApproveStaged = async (allowSimilar: boolean = false) => {
     if (!selectedStagedId) return;
     setSaving(true);
     try {
@@ -553,15 +649,25 @@ export default function CuratorStudioPage() {
           action: 'approve_staged',
           stagedId: selectedStagedId,
           approvedWord: formState,
+          morphemes: formMorphemes || undefined,
+          allowSimilar,
+          apiKey: clientApiKey,
         }),
       });
       const data = await res.json();
+      if (res.status === 409 && data.requiresConfirmation && !allowSimilar) {
+        setSaving(false);
+        if (window.confirm(`${data.error}\n\nApprove and plant "${formState.word}" anyway?`)) {
+          return handleApproveStaged(true);
+        }
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Approval failed');
       setWords(data.words);
       setStagedWords(data.staged || []);
       setBanner({
         type: 'success',
-        text: `Approved & planted "${formState.word}" (${getDifficultyMeta(formState).label} • ${getTopicMeta(formState).label})! 🌱`,
+        text: `Approved & planted "${formState.word}" (${getDifficultyMeta(formState).label} • ${getTopicMeta(formState).label}) with morphemes! 🌱`,
       });
       if (data.staged && data.staged.length > 0) {
         handleSelectStagedWord(data.staged[0]);
@@ -602,6 +708,14 @@ export default function CuratorStudioPage() {
       setSaving(false);
     }
   };
+
+  const liveSimilarMatches = useMemo(() => {
+    const exclude =
+      activeTab === 'live' && selectedIndex !== null
+        ? words.find((w) => w.index === selectedIndex)?.word
+        : undefined;
+    return findSimilarLexiconWords(formState.word, words, exclude);
+  }, [formState.word, words, activeTab, selectedIndex]);
 
   const liveMaskPreview = computeClientMaskPreview(formState.example, formState.word);
   const isMaskValid = liveMaskPreview.includes('•');
@@ -800,9 +914,19 @@ export default function CuratorStudioPage() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={`Search ${words.length || 675}+ words, definitions, roots, examples...`}
-                    className="w-full pl-10 pr-4 py-2 rounded-xl border border-emerald-200 text-xs font-medium text-emerald-950 focus:border-emerald-600 outline-none bg-white"
+                    placeholder={`Search ${words.length} words, definitions, roots, quotes...`}
+                    className="w-full pl-10 pr-8 py-2 rounded-xl border border-emerald-200 text-xs font-medium text-emerald-950 focus:border-emerald-600 outline-none bg-white"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      aria-label="Clear search"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-black text-emerald-600 hover:text-emerald-950 px-1"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
 
                 {/* Deck Filter Pills */}
@@ -939,8 +1063,25 @@ export default function CuratorStudioPage() {
                     Loading curated lexicon...
                   </div>
                 ) : filteredWords.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-emerald-600">
-                    No words match your current filter.
+                  <div className="p-8 text-center text-xs text-emerald-700 space-y-2.5">
+                    <p className="font-bold">
+                      No words match &ldquo;{searchQuery.trim() || 'your filters'}&rdquo;.
+                    </p>
+                    {(difficultyFilter !== 'all' ||
+                      topicFilter !== 'all' ||
+                      auditFilter !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDifficultyFilter('all');
+                          setTopicFilter('all');
+                          setAuditFilter('all');
+                        }}
+                        className="px-3 py-1 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold transition-colors"
+                      >
+                        Reset Tier / Topic / Audit Filters
+                      </button>
+                    )}
                   </div>
                 ) : (
                   filteredWords.map((item) => {
@@ -1356,6 +1497,46 @@ export default function CuratorStudioPage() {
               </div>
             </div>
 
+            {/* Duplicate / Similar Word Guard */}
+            {liveSimilarMatches.length > 0 && (
+              <div
+                className={`p-3 rounded-2xl border text-xs space-y-1.5 ${
+                  liveSimilarMatches.some((m) => m.matchType === 'exact')
+                    ? 'bg-red-50 border-red-200 text-red-900'
+                    : 'bg-amber-50 border-amber-200 text-amber-950'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-black uppercase tracking-wider text-[10px]">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {liveSimilarMatches.some((m) => m.matchType === 'exact')
+                      ? 'Duplicate Word Already in Lexicon'
+                      : 'Similar Word(s) Already in Lexicon — Check Before Adding'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {liveSimilarMatches.map((m) => {
+                    const existingEntry = words.find(
+                      (w) => w.word.toLowerCase() === m.word.toLowerCase()
+                    );
+                    return (
+                      <button
+                        key={`sim-${m.word}`}
+                        type="button"
+                        onClick={() => existingEntry && handleSelectLiveWord(existingEntry)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/90 hover:bg-white border border-amber-300 text-[11px] font-bold transition-colors"
+                        title={`${m.definition} (click to inspect)`}
+                      >
+                        <span className="font-black">{m.word}</span>
+                        <span className="opacity-70">({m.form})</span>
+                        <span className="text-[10px] italic opacity-80">— {m.reason}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Primary & Secondary Definitions */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -1416,6 +1597,66 @@ export default function CuratorStudioPage() {
                   </p>
                 </div>
               )}
+
+              {/* Morpheme Breakdown Preview & Sync */}
+              <div className="p-3 rounded-xl bg-[#F4F7F0] border border-[#DCE5D5] space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                    🧬 Word Network Morpheme Breakdown (Prefix · Root · Suffix)
+                  </span>
+                  {activeTab === 'live' && selectedIndex !== null && (
+                    <button
+                      type="button"
+                      disabled={regenMorphemesLoading}
+                      onClick={handleRegenerateMorphemes}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white hover:bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-900 disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        className={`w-3 h-3 ${regenMorphemesLoading ? 'animate-spin' : ''}`}
+                      />
+                      <span>
+                        {regenMorphemesLoading ? 'Updating...' : 'Regenerate Morphemes'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+                {formMorphemes &&
+                (formMorphemes.prefixes.length > 0 ||
+                  formMorphemes.roots.length > 0 ||
+                  formMorphemes.suffixes.length > 0) ? (
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    {formMorphemes.prefixes.map((p, idx) => (
+                      <span
+                        key={`cur-p-${p.canonicalId}-${idx}`}
+                        className="px-2 py-0.5 rounded-lg bg-[#FCF7EA] border border-[#E6D4A5] text-amber-950 font-bold"
+                      >
+                        Pre: {p.form} ({p.canonicalId})
+                      </span>
+                    ))}
+                    {formMorphemes.roots.map((r, idx) => (
+                      <span
+                        key={`cur-r-${r.canonicalId}-${idx}`}
+                        className="px-2 py-0.5 rounded-lg bg-[#EDF5EB] border border-[#BBD9B7] text-emerald-950 font-bold"
+                      >
+                        Root: {r.form} → {r.canonicalId}
+                        {r.pieRoot ? ` · PIE ${r.pieRoot}` : ''}
+                      </span>
+                    ))}
+                    {formMorphemes.suffixes.map((s, idx) => (
+                      <span
+                        key={`cur-s-${s.form}-${idx}`}
+                        className="px-2 py-0.5 rounded-lg bg-stone-100 border border-stone-200 text-stone-700 font-semibold"
+                      >
+                        Suf: {s.form}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-emerald-700 italic">
+                    Morphemes will be generated automatically when you save, add, or click Auto-Populate Fields.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Example Sentence + Live Masking Preview */}
@@ -1524,9 +1765,9 @@ export default function CuratorStudioPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={saving}
-                  onClick={handleApproveStaged}
-                  className="px-6 py-3 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2"
+                  disabled={saving || liveSimilarMatches.some((m) => m.matchType === 'exact')}
+                  onClick={() => handleApproveStaged(false)}
+                  className="px-6 py-3 rounded-2xl bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Approve &amp; Add to utils/data.ts 🌱</span>
@@ -1537,9 +1778,9 @@ export default function CuratorStudioPage() {
             {activeTab === 'new' && (
               <button
                 type="button"
-                disabled={saving}
-                onClick={handleAddNewWord}
-                className="px-6 py-3 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2"
+                disabled={saving || liveSimilarMatches.some((m) => m.matchType === 'exact')}
+                onClick={() => handleAddNewWord(false)}
+                className="px-6 py-3 rounded-2xl bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 <span>Plant New Word in utils/data.ts 🌱</span>

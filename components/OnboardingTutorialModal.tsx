@@ -57,7 +57,8 @@ const STEPS = [
       'Because Field Notes, In Your Own Words, and Flashcards draw from words you have already unlocked, Seed Sprout is the best place to begin.',
     bullets: [
       'Jump straight into Pasture for approachable starter words, or pick Meadow / Conservatory from the main menu.',
-      'Use Letter Tiles or Reveal Letter hints whenever you need a hand—every completed word gets added to your Garden.',
+      'These word games are meant to be challenging at first and often take hints (Reveal Letter, Letter Tiles, Etymology, or Narrow Down) to figure out—that trial-and-error is part of the learning process.',
+      'Don’t hesitate to use hints whenever you need a hand—every completed word gets planted in your Garden for spaced review.',
     ],
   },
 ];

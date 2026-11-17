@@ -109,14 +109,6 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
     quote: 'The aim of a wise life is neither restless ambition nor luxury, but freedom from bodily pain and ataraxia of the soul.',
     author: 'Epicurus, Letter to Menoeceus (c. 300 BCE)',
   },
-  casuistry: {
-    quote: 'Conscience needs no subtle casuistry when the plain duty of honesty stands directly before us.',
-    author: 'Blaise Pascal, Provincial Letters (1657, adapted)',
-  },
-  deontology: {
-    quote: 'According to strict deontology, the moral worth of an action lies not in the utility of its outcome, but in the principle of duty from which it is done.',
-    author: 'W. D. Ross, The Right and the Good (1930)',
-  },
   dialectic: {
     quote: 'Dialectic is the only science which does away with hypotheses in order to Ascend to the first principle itself and secure its ground.',
     author: 'Plato, Republic (Book VII)',
@@ -124,14 +116,6 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
   epistemology: {
     quote: 'The central task of epistemology is to distinguish the solid rock of warranted knowledge from the shifting sands of lucky conjecture.',
     author: 'Karl Popper, The Logic of Scientific Discovery (1959)',
-  },
-  eudaimonia: {
-    quote: 'One swallow does not make a spring, nor does one fine day; and similarly one day or a brief time of pleasure does not bring a human life to eudaimonia.',
-    author: 'Aristotle, Nicomachean Ethics (Book I)',
-  },
-  hermeneutics: {
-    quote: 'Every act of reading across the centuries is an exercise in hermeneutics, a fusion of the ancient text’s horizon with our own.',
-    author: 'Hans-Georg Gadamer, Truth and Method (1960)',
   },
   incommensurability: {
     quote: 'Proponents of competing scientific paradigms practice their trades in different worlds, separated by a partial incommensurability of standards and terms.',
@@ -537,14 +521,6 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
     quote: 'I saw pale kings, and princes too, pale warriors, death-pale were they all; they cried—"La Belle Dame sans Merci hath thee in thrall!"',
     author: 'John Keats, La Belle Dame sans Merci (1819)',
   },
-  caryatid: {
-    quote: 'She wore on the top of her head an upright circular cap that made her resemble a caryatid disburdened, and on other parts of her person strange combinations of colours, stuffs, shapes, of metal, mineral and plant.',
-    author: 'Henry James, Flickerbridge (1901)',
-  },
-  clerestory: {
-    quote: 'Following these signs, he beheld three or four men with bent bows, leaning from the clerestory gallery.',
-    author: 'Robert Louis Stevenson, The Black Arrow (1883)',
-  },
   corbel: {
     quote: 'The booking hall is lofty and of peculiar design, the roof being carried on timbered beams set in pairs rising from carved corbels.',
     author: 'D. J. Rowett, Stamford L.N.E.R. (1946)',
@@ -553,37 +529,9 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
     quote: 'In minutes they had gained the top, fell prone, and began to pour deadly repeater-fire into the enemy below while their compatriots raked the top of the coulee with an enfilade.',
     author: 'Guy Vanderhaeghe, The Englishman’s Boy (1996)',
   },
-  entablature: {
-    quote: 'Such a distinctive and pleasing feature did this become that it was widely adapted to brick construction, the outward projection of pilasters and engaged columns, often both, supporting pediments and entablatures which had the effect of increasing the depth of brick walls.',
-    author: 'Frank Cousins; Phil M. Riley, The Colonial Architecture of Philadelphia (1920)',
-  },
-  fenestration: {
-    quote: 'The terms ‘nectar window’ and ‘fenestration’ are used interchangeably for enlarged gaps on the adaxial side of the stamen sheath or tube. The fenestrations facilitate access to the nectaries by a pollinator.',
-    author: 'S. Tucker, Australian Systematic Botany (2005)',
-  },
   finial: {
     quote: 'He says there\'s a very particular etiquette to having your flag at half-mast: you\'re supposed to first run it all the way up to the finial at the top and then bring it halfway down.',
     author: 'David Foster Wallace, Consider the Lobster and Other Essays (2005)',
-  },
-  tracery: {
-    quote: 'Because of the flamelike undulations of its window tracery, the Norman archæologist, M. de Caumont, who had brought into use the name Romanesque, invented the equally useful term Flamboyant.',
-    author: 'Elizabeth Boyle O\'Reilly, How France Built Her Cathedrals (1921)',
-  },
-  volute: {
-    quote: 'This example is much richer, yet no less elegant, than the other; the volute, instead of a single spiral, is formed by three; the sculptured echinus beneath is surmounted by a guilloched moulding, and separated from the shaft by a neck ...',
-    author: 'Edward Shaw, The Modern Architect, Or, Every Carpenter His Own Master (1856)',
-  },
-  autarky: {
-    quote: 'Local government entities are not autarkies, they don\'t lead fully independent financial policies, but still they have sufficient flexibility at the municipal level in their investments to be able to quantify and monitor their performance.',
-    author: 'Piotr Arak; et al., National Human Development Report: Poland 2012: Local and Regional Development (2013)',
-  },
-  suzerainty: {
-    quote: '[O]rganizations and enterprises in the regions, run in a personal way almost as local corporations, or what I call "suzerainties," by local bosses, have strengthened themselves and increased their social functions to protect their members.',
-    author: 'Caroline Humphrey, The Unmaking of Soviet Life: Everyday Economies after Socialism (2002)',
-  },
-  concordat: {
-    quote: 'The Concordat of the See of Rome with King Diniz is the most interesting ecclesiastical epoch […].',
-    author: 'William Scott, The Christian Remembrancer (1846)',
   },
   plenipotentiary: {
     quote: 'None but the like-minded can come plenipotentiary to our court.',
@@ -597,10 +545,6 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
     quote: 'I like you more than I can say; but I\'ll not sink into a bathos of sentiment...',
     author: 'Charlotte Bronte, Jane Eyre (1847)',
   },
-  caesura: {
-    quote: 'A quiet time. A caesura. Then everything happened almost at once, and none of it was good.',
-    author: 'Stephen King, Fairy Tale (2022)',
-  },
   metonymy: {
     quote: '[T]he principle of metonymy is simply to substitute for the plain name of a thing a name or phrase based on something connected with it.',
     author: 'William Minto, The Chautauquan (1891)',
@@ -608,10 +552,6 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
   synecdoche: {
     quote: 'Perhaps being in a touring band was, to Yorke, a synecdoche for the modern condition: disorientation, alienation, rootlessness, exhaustion, lack of control, occasional derangement, constant motion.',
     author: 'Dorian Lynskey, The 20-year-old black mirror that reflects the world today (2017)',
-  },
-  zeugma: {
-    quote: 'Thus I would describe \'He took his leave and the wrong umbrella\' as zeugma, but not \'He took his hat and umbrella\'. Zeugma is an important element in Chaucer\'s poetic technique, not because he uses it, but because he so regularly turns it down.',
-    author: 'Amanda Holton, The Sources of Chaucer\'s Poetics (2008)',
   },
   chiasmus: {
     quote: 'Leeman therefore holds that chiasmus is the basic order in Greek and Latin: antithesis is, he claims, normal for the modern, rational mind, but for the Greeks and Romans chiasmus was more natural.',
@@ -777,29 +717,13 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
     quote: 'Dreams contain oneiric images and oneiric symbols. Both of them are, in fact, \'distorted\' manifestations of a latent content which resides in the dreamer\'s unconscious.',
     author: 'Khaled Besbes, The Semiotics of Beckett\'s Theatre (2007)',
   },
-  cantilever: {
-    quote: 'Eventually Sir John Fowler\'s and Sir Benjamin Baker\'s continuous steel girder bridge on the cantilever principle was adopted.',
-    author: 'the late John Phillimore, The Forth Bridge 1890-1940 (1941)',
-  },
   chiaroscuro: {
     quote: 'It is cruder than the others, more graphic, less chiaroscuro.',
     author: 'Charles Neider, The frozen sea: a study of Franz Kafka (1962)',
   },
-  parapet: {
-    quote: 'Engineers will be closely checking the bridge for damage beyond the obvious smashed parapets.',
-    author: 'Mid-September before line reopens, says Network Rail (2020)',
-  },
-  portico: {
-    quote: '... Porticus Milliaria (portico of the thousand paces) which was the longest, if not the most attractive, of the many portici of ancient Rome.',
-    author: 'Carlo Galassi Paluzzi, Roman Churches (1971)',
-  },
   tessellation: {
     quote: 'Decorative arches intersect the graceful latticework of the expansive ridge and furrow trainshed rooves, woven together by a staggering tessellation of 48,000 glass panels.',
     author: 'Nick Brodrick, The grand gateway to Glasgow (2023)',
-  },
-  'détente': {
-    quote: 'Analogous structural and political constraints stood in the way of a lasting détente between Germany and Britain.',
-    author: 'Christopher Clark, The Sleepwalkers: How Europe Went to War in 1914 (2012)',
   },
   jurisprudence: {
     quote: 'There is considerable jurisprudence to the effect that only the evidence that was before the initial decision-maker should be considered by the Court on judicial review.',
@@ -820,10 +744,6 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
   realpolitik: {
     quote: 'Realpolitik, in one or another form, is, therefore, from the standpoint of science and of abstract principle, immoral, unsound and no defense of it on the ground of concrete necessity can make it otherwise.',
     author: 'Elisha Ely Garrison, The Riddle of Economics (1932)',
-  },
-  assonance: {
-    quote: '"You should try to speak without assonances" said Merlyn. "For instance, \'The beer is never clear round here, dear\' is unfortunate, even as an assonance.\'"',
-    author: 'T.H. White, The Sword in the Stone (1938)',
   },
   bildungsroman: {
     quote: 'Goethe\'s honorific assignment to the vanguard of a uniquely German novelistic tradition of the bildungsroman simultaneously places him outside the mainstream of the development of the novel.',

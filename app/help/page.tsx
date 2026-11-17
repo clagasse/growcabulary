@@ -98,6 +98,14 @@ export default function HelpPage() {
                 <strong>Garden</strong>.
               </p>
             </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/75 p-4 text-xs sm:text-sm text-amber-950 leading-relaxed max-w-3xl">
+              <strong className="font-black">Expect to use hints at first:</strong> Growcabulary&apos;s
+              word games are intentionally challenging—you aren&apos;t expected to know every word
+              cold. Using <strong>Reveal Letter</strong>, <strong>Letter Tiles</strong>,{' '}
+              <strong>Etymology</strong>, or <strong>Narrow Down</strong> clues to work out
+              unfamiliar words is a core part of the learning process; each encounter plants the
+              word in your Garden so it sticks over future reviews.
+            </div>
           </div>
         </div>
 
@@ -240,13 +248,21 @@ export default function HelpPage() {
               </p>
             </div>
             <div className="journal-subcard rounded-2xl p-4 space-y-1.5">
-              <div className="flex items-center gap-2 font-black text-sm text-emerald-950">
-                <Network className="w-4 h-4 text-emerald-700" />
-                <span>Word Network</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-black text-sm text-emerald-950">
+                  <Network className="w-4 h-4 text-emerald-700" />
+                  <span>Word Network</span>
+                </div>
+                <Link
+                  href="/help/word-network"
+                  className="text-[11px] font-black text-emerald-800 hover:text-emerald-950 underline"
+                >
+                  Full Guide →
+                </Link>
               </div>
               <p className="text-xs text-emerald-800 leading-relaxed">
-                Trace how words connect across Latin, Greek, French, and Germanic root families,
-                including undiscovered words in each root cluster.
+                Explore interactive origin zones, shared root hubs, and Shared Ancient Roots
+                connecting Latin, Greek, and Germanic cognates.
               </p>
             </div>
           </div>
@@ -308,15 +324,47 @@ export default function HelpPage() {
           </section>
         </div>
 
-        {/* About This Project */}
-        <section className="journal-subcard rounded-2xl p-4 sm:p-5 space-y-1.5">
-          <h2 className="font-black text-sm text-emerald-950">About This Project</h2>
-          <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
-            Growcabulary was built by a solo developer with AI assistance—including drafting and
-            organizing definitions, etymologies, and example sentences. If you spot any errors,
-            inaccuracies, or bugs, please let us know using the <strong>Send Feedback</strong>{' '}
-            button below.
-          </p>
+        {/* About This Project & Sources */}
+        <section className="journal-subcard rounded-2xl p-4 sm:p-5 space-y-3">
+          <div className="space-y-1.5">
+            <h2 className="font-black text-sm text-emerald-950">About This Project</h2>
+            <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
+              Growcabulary was built by a solo developer with AI assistance—including drafting and
+              organizing definitions, etymologies, and example sentences. If you spot any errors,
+              inaccuracies, or bugs, please let us know using the <strong>Send Feedback</strong>{' '}
+              button below.
+            </p>
+          </div>
+          <div className="pt-2.5 border-t border-[#DCE5D5] space-y-1.5">
+            <h3 className="font-black text-xs uppercase tracking-wider text-emerald-900">
+              Definitions &amp; Real-Life Example Sources
+            </h3>
+            <ul className="list-disc pl-5 space-y-1 text-xs text-emerald-800 leading-relaxed">
+              <li>
+                <strong>Wiktionary</strong> (
+                <a
+                  href="https://en.wiktionary.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-semibold text-emerald-950 hover:text-emerald-700"
+                >
+                  en.wiktionary.org
+                </a>
+                ): Verified literary, historical, and journalistic quotation passages (with author,
+                work, and year) used in Field Notes and Flashcards, as well as dictionary-sense
+                auditing for secondary definitions.
+              </li>
+              <li>
+                <strong>Classic Literature &amp; Historical Speeches:</strong> Public-domain and
+                canonical works (e.g., Shakespeare, Austen, Brontë, Dickens, Thoreau, Orwell,
+                Lincoln, and Churchill), each cited directly beneath its passage.
+              </li>
+              <li>
+                <strong>Editorial &amp; AI-Assisted Curation:</strong> Primary definitions,
+                etymology notes, and fallback example sentences where no external quote is attached.
+              </li>
+            </ul>
+          </div>
         </section>
 
         {/* Bottom CTA */}

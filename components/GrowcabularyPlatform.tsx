@@ -91,12 +91,14 @@ const RAW_WORDS_BY_KEY = new Map<string, Word>(
   RAW_WORDS.map((w) => [w.word.toLowerCase(), w])
 );
 
-function normalizeGardenEntry(entry: GardenEntry): GardenEntry {
+function normalizeGardenEntry(entry: GardenEntry): GardenEntry | null {
   const match = RAW_WORDS_BY_KEY.get(entry.word.toLowerCase());
+  if (!match) return null;
   return {
     ...entry,
-    seed: match ? getWordDifficulty(match) : getWordDifficulty(entry),
-    topic: match ? getWordTopic(match) : getWordTopic(entry),
+    ...match,
+    seed: getWordDifficulty(match),
+    topic: getWordTopic(match),
   };
 }
 
@@ -212,8 +214,11 @@ export const GrowcabularyPlatform: React.FC = () => {
       if (savedGarden) {
         const parsedGarden = JSON.parse(savedGarden);
         if (Array.isArray(parsedGarden)) {
-          hasSavedWords = parsedGarden.length > 0;
-          setGardenList(parsedGarden.map((item) => normalizeGardenEntry(item)));
+          const validLocal = parsedGarden
+            .map((item) => normalizeGardenEntry(item))
+            .filter((item): item is GardenEntry => Boolean(item));
+          hasSavedWords = validLocal.length > 0;
+          setGardenList(validLocal);
         }
       }
 
@@ -296,7 +301,9 @@ export const GrowcabularyPlatform: React.FC = () => {
       const mergedMap = new Map<string, GardenEntry>();
       localSnapshot.forEach((item) => {
         const normalized = normalizeGardenEntry(item);
-        mergedMap.set(normalized.word.toLowerCase(), normalized);
+        if (normalized) {
+          mergedMap.set(normalized.word.toLowerCase(), normalized);
+        }
       });
 
       const cloudTimeByTerm = new Map<string, number>();

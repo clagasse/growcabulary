@@ -8,15 +8,88 @@
   },
   "words": [
     {
-      "id": "staged-1794760313047-0",
-      "word": "efflorescence",
+      "id": "staged-1794893082782-0",
+      "word": "rapprochement",
       "seed": "garden",
+      "topic": "statecraft",
       "form": "noun",
-      "definition": "The state or period of flowering and reaching a peak of developmental beauty.",
-      "definition2": "A powdery, whitish crust formed on mineral surfaces when moisture evaporates.",
-      "etymology": "Derived from the Latin verb 'efflorescere', which combines the prefix 'ex-' meaning 'out' with 'florescere' meaning 'to begin blooming'. In Roman agriculture, the term originally captured the miraculous visual explosion when orchards and vineyards abruptly burst into full flower under the spring warmth. Over subsequent centuries, natural philosophers and literary scholars adopted the image to describe both the highest aesthetic zenith of a cultural movement and the crystalline crust blooming upon evaporating stone.",
-      "example": "The late sixteenth century witnessed a glorious efflorescence of English drama, transforming rough public playhouses into enduring temples of poetic invention.",
-      "origin": "Latin 'efflorescere' (to blossom or bloom forth)"
+      "definition": "An establishment or resumption of harmonious relations, especially between antagonistic nations.",
+      "definition2": "A coming together or reconciliation between opposing factions, theories, or groups.",
+      "etymology": "Derived from the French verb 'rapprocher', formed from the prefix 're-' denoting return and 'approcher', which traces to Late Latin 'appropiare' meaning to bring near. In eighteenth-century French diplomatic correspondence, the word was used to denote the delicate maneuvering required to draw estranged princely houses back into cordial physical proximity. Over centuries of European statecraft, the term solidified into a formal diplomatic doctrine describing the deliberate, structured de-escalation of interstate hostility.",
+      "example": "Decades of territorial skirmishing concluded when secret border summits paved the way for an unexpected rapprochement between the rival nations.",
+      "origin": "French"
+    },
+    {
+      "id": "staged-1794893082782-1",
+      "word": "suzerainty",
+      "seed": "garden",
+      "topic": "statecraft",
+      "form": "noun",
+      "definition": "The dominant political control exercised by a sovereign state over a tributary or semi-independent territory.",
+      "definition2": "An overarching, quasi-feudal authority or superior dominion held over a subordinate entity.",
+      "etymology": "Derived from Old French 'suzerain', coined from 'sus' meaning above, altered on the model of 'souverain' from the Latin root 'sursum' meaning upward. Feudal jurists originally conceived the title to define lords who possessed superior seignorial rights over vassal lands without holding direct personal ownership of the soil. As empires expanded, diplomacy retained the concept to describe an asymmetric covenant where an imperial center oversaw foreign affairs while permitting local dynasts limited internal autonomy.",
+      "example": "The mountainous province managed its own judicial courts while reluctantly conceding military defense and foreign trade to the empire's suzerainty.",
+      "origin": "French"
+    },
+    {
+      "id": "staged-1794893082782-3",
+      "word": "demarche",
+      "seed": "garden",
+      "topic": "statecraft",
+      "form": "noun",
+      "definition": "A formal diplomatic representation, petition, protest, or statement of policy issued to a foreign government.",
+      "definition2": "A deliberate and decisive step, maneuver, or initiative undertaken in statecraft or public life.",
+      "etymology": "Originates from the French noun 'démarche', stemming from the verb 'démarcher', which literally signified walking off, pacing out, or taking a measured physical step. In the seventeenth-century court of Louis XIV, the word described a courtier's precise spatial progression or formal petition presented directly to the throne. Over time, European chanceries elevated this measured physical advance into an official term of art for solemn, written interventions delivered by envoys to foreign foreign ministries.",
+      "example": "Disturbed by the sudden deployment of naval reserves, the coalition ambassador delivered an urgent demarche demanding an immediate cessation of maneuvers.",
+      "origin": "French"
+    },
+    {
+      "id": "staged-1794893082782-4",
+      "word": "concordat",
+      "seed": "garden",
+      "topic": "statecraft",
+      "form": "noun",
+      "definition": "An official agreement, compact, or treaty, particularly between the Holy See and a secular government.",
+      "definition2": "Any solemn covenant, pact, or binding convention regulating relations between powerful distinct institutions.",
+      "etymology": "Formed from the Latin 'concordare', meaning to be of one mind or agree, compounded from 'com-' meaning together and 'cor' meaning heart. Medieval scholars and papal chanceries utilized the term to resolve bloody investiture controversies where sovereign princes and ecclesiastical authorities contested the appointment of bishops. This juridical framework gradually broadened into an enduring political instrument that legally harmonizes civil statutes with institutional prerogatives through solemn mutual accord.",
+      "example": "The newly elected prime minister signed an enduring concordat that safeguarded the religious minority’s educational autonomy and public tax exemptions.",
+      "origin": "Latin"
+    },
+    {
+      "id": "staged-1794881202642-1",
+      "word": "spleen",
+      "seed": "garden",
+      "topic": "emotions",
+      "form": "noun",
+      "definition": "Bad temper, spite, or ill-humored malice",
+      "definition2": "Laughter or mirth that is provoked by mocking or sarcastic impulses",
+      "etymology": "Rooted in the ancient Greek 'splen', the anatomical term designating the internal abdominal organ. Under classical humoral medicine formulated by Hippocrates and Galen, this dark organ was deemed responsible for secreting black bile, the fluid driving morose fury. By Elizabethan times, writers regularly invoked the organ whenever a character succumbed to sudden bursts of vindictive, venomous bad temper.",
+      "example": "Unable to vent his spleen against his overbearing supervisor, the clerk took out his festering spite on harmless junior interns.",
+      "origin": "Greek"
+    },
+    {
+      "id": "staged-1794881202642-2",
+      "word": "morose",
+      "seed": "garden",
+      "topic": "emotions",
+      "form": "adjective",
+      "definition": "Sullen and ill-tempered in disposition or expression",
+      "definition2": "Characterized by gloomy, unresponsive brooding",
+      "etymology": "Originates from the Latin 'morosus', which meant captious, peevish, or excessively scrupulous about one's personal habits. The Latin term sprang from 'mos' (plural 'mores'), referring to customary conduct, manners, or a set way of doing things. An individual stubbornly attached to rigid personal habits often became surly when disturbed, leading English scholars to associate the word with intractable gloom.",
+      "example": "After his manuscript was rejected for the fourth time, Julian sat in morose silence, ignoring the cheerful chatter of his roommates.",
+      "origin": "Latin"
+    },
+    {
+      "id": "staged-1794881202642-3",
+      "word": "perturbation",
+      "seed": "garden",
+      "topic": "emotions",
+      "form": "noun",
+      "definition": "A state of acute mental disquiet, agitation, or anxious confusion",
+      "definition2": "A secondary influence that alters the regular course or equilibrium of a system",
+      "etymology": "Derived from the Latin verb 'perturbare', composed of the intensive prefix 'per-' and 'turbare', meaning to confuse or throw into disorder. In Roman military and civil accounts, the verb depicted panicked crowds or formations thrown into chaotic turbulence by unexpected alarms. The word soon passed into psychological lexicons to capture the frantic inner disarray experienced during a shocking crisis.",
+      "example": "The diplomat could not conceal his perturbation when intercepted cables revealed that covert border deployments had already begun behind his back.",
+      "origin": "Latin"
     },
     {
       "id": "staged-1794760313047-1",
@@ -72,17 +145,6 @@
       "etymology": "Traced to the Latin noun 'topiarius', meaning an ornamental landscape gardener, stemming from the Greek 'topos' for 'place'. Wealthy patricians of ancient Rome hired specialized enslaved craftsmen called 'topiarii' to shear boxwood and cypress into ships, hunting scenes, and letters spelling the owner's name. The craft survived in monastic courtyards and grand renaissance villas, transforming ordinary hedges into living architecture and permanent outdoor sculpture.",
       "example": "Generations of meticulous estate groundskeepers had preserved the cedar topiary, shaping its evergreen crown into the likeness of a strutting peacock.",
       "origin": "Latin 'topiarius' from Greek 'topos' (place, local landscape)"
-    },
-    {
-      "id": "staged-1794759414513-0",
-      "word": "tenebrific",
-      "seed": "conservatory",
-      "form": "adjective",
-      "definition": "producing darkness or gloom",
-      "definition2": "obscuring clarity of thought or understanding",
-      "etymology": "Derived from the Latin 'tenebrosus', stemming from 'tenebrae', meaning 'shadows' or 'darkness'. In ancient Roman mythology, Tenebrae was personified as the primeval gloom that preceded light and inhabited the underworld. Over centuries of scholastic philosophy, the literal cloak of night transformed into a descriptor for ideas or atmospheres that willfully extinguish intellectual enlightenment.",
-      "example": "The philosopher rejected the sophist's tenebrific prose, arguing that intentionally convoluted metaphors merely served to conceal a fundamental lack of rigorous logic.",
-      "origin": "Latin"
     },
     {
       "id": "staged-1794759414513-1",
