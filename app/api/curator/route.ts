@@ -4,12 +4,19 @@ import path from 'path';
 import vm from 'vm';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerSupabaseClient } from '../../../utils/supabase/server';
-import { Word, SeedType, DifficultyTier, TopicCategory } from '../../../types';
+import {
+  Word,
+  SeedType,
+  DifficultyTier,
+  TopicCategory,
+  FieldNoteAlternativeEntry,
+} from '../../../types';
 import { RAW_WORDS as BUNDLED_RAW_WORDS } from '../../../utils/data';
 import {
   WORD_MORPHEMES as BUNDLED_WORD_MORPHEMES,
   WordMorphemeProfile,
 } from '../../../utils/morphemes';
+import { FIELD_NOTE_ALTERNATIVES as BUNDLED_FIELD_ALTERNATIVES } from '../../../utils/fieldAlternatives';
 import { extractWordMorphemes } from '../../../utils/etymology';
 import { findSimilarLexiconWords } from '../../../utils/wordSimilarity';
 import { getWordDifficulty, getWordTopic } from '../../../constants';
@@ -18,14 +25,17 @@ export const dynamic = 'force-dynamic';
 
 let memoryWordsCache: Word[] | null = null;
 let memoryMorphemesCache: Record<string, WordMorphemeProfile> | null = null;
+let memoryFieldAltsCache: Record<string, FieldNoteAlternativeEntry> | null = null;
 let memoryStagedCache: (Word & { id: string })[] | null = null;
 let diskWordsWriteFailed = false;
 let diskMorphemesWriteFailed = false;
+let diskFieldAltsWriteFailed = false;
 let diskStagedWriteFailed = false;
 let warnedMissingServiceRole = false;
 
 const DATA_TS_PATH = path.join(process.cwd(), 'utils', 'data.ts');
 const MORPHEMES_TS_PATH = path.join(process.cwd(), 'utils', 'morphemes.ts');
+const FIELD_ALTS_TS_PATH = path.join(process.cwd(), 'utils', 'fieldAlternatives.ts');
 const LEGACY_DATA_TS_PATH = path.join(process.cwd(), '..', 'growcabulary', 'utils', 'data.ts');
 const STAGED_JSON_PATH = path.join(
   process.cwd(),
@@ -328,6 +338,173 @@ Reuse matching existing canonical root IDs when applicable: ${Array.from(sampleC
       })),
     suffixes: [],
   };
+}
+
+function readFieldAlternativesFromDisk(): Record<string, FieldNoteAlternativeEntry> {
+  if (diskFieldAltsWriteFailed && memoryFieldAltsCache) {
+    return { ...memoryFieldAltsCache };
+  }
+  try {
+    const fileContent = fs.readFileSync(FIELD_ALTS_TS_PATH, 'utf8');
+    const objMatch = fileContent.match(
+      /export\s+const\s+FIELD_NOTE_ALTERNATIVES[\s\S]*?=\s*(\{[\s\S]*?\n\});/
+    );
+    if (objMatch) {
+      const parsed = vm.runInNewContext(`(${objMatch[1]})`, {}) as Record<
+        string,
+        FieldNoteAlternativeEntry
+      >;
+      if (parsed && typeof parsed === 'object') {
+        memoryFieldAltsCache = { ...parsed };
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('Falling back to bundled/in-memory FIELD_NOTE_ALTERNATIVES:', err);
+  }
+  return memoryFieldAltsCache
+    ? { ...memoryFieldAltsCache }
+    : { ...BUNDLED_FIELD_ALTERNATIVES };
+}
+
+function writeFieldAlternativesToDisk(altsMap: Record<string, FieldNoteAlternativeEntry>) {
+  memoryFieldAltsCache = { ...altsMap };
+  const sortedKeys = Object.keys(altsMap)
+    .sort()
+    .filter(
+      (k) =>
+        (altsMap[k]?.strongFits?.length || 0) > 0 ||
+        (altsMap[k]?.plausibleFits?.length || 0) > 0
+    );
+  const bodyLines = sortedKeys.map(
+    (k) =>
+      `  ${JSON.stringify(k)}: { strongFits: ${JSON.stringify(
+        altsMap[k].strongFits || []
+      )}, plausibleFits: ${JSON.stringify(altsMap[k].plausibleFits || [])} },`
+  );
+  const serialized = `import type { FieldNoteAlternativeEntry, Word } from '../types';
+
+export type { FieldNoteAlternativeEntry };
+export type FieldNoteFitTier = 'exact' | 'strong' | 'plausible' | 'none';
+
+export interface FieldNoteEvaluation {
+  tier: FieldNoteFitTier;
+  scoreMultiplier: number;
+}
+
+export const FIELD_NOTE_ALTERNATIVES: Record<string, FieldNoteAlternativeEntry> = {
+${bodyLines.join('\n')}
+};
+
+export function evaluateFieldNoteChoice(
+  targetWord: string | Word,
+  candidateWord: string
+): FieldNoteEvaluation {
+  const targetStr = typeof targetWord === 'string' ? targetWord : targetWord.word;
+  const targetLower = targetStr.trim().toLowerCase();
+  const candidateLower = candidateWord.trim().toLowerCase();
+  if (!candidateLower) {
+    return { tier: 'none', scoreMultiplier: 0 };
+  }
+  if (candidateLower === targetLower) {
+    return { tier: 'exact', scoreMultiplier: 1 };
+  }
+  const dbEntry = typeof targetWord === 'string' ? undefined : targetWord.fieldAlternatives;
+  const entry =
+    dbEntry && (dbEntry.strongFits?.length || dbEntry.plausibleFits?.length)
+      ? dbEntry
+      : FIELD_NOTE_ALTERNATIVES[targetLower];
+  if (!entry) {
+    return { tier: 'none', scoreMultiplier: 0 };
+  }
+  if (entry.strongFits?.some((w) => w.toLowerCase() === candidateLower)) {
+    return { tier: 'strong', scoreMultiplier: 0.75 };
+  }
+  if (entry.plausibleFits?.some((w) => w.toLowerCase() === candidateLower)) {
+    return { tier: 'plausible', scoreMultiplier: 0.4 };
+  }
+  return { tier: 'none', scoreMultiplier: 0 };
+}
+`;
+  try {
+    fs.writeFileSync(FIELD_ALTS_TS_PATH, serialized, 'utf8');
+    diskFieldAltsWriteFailed = false;
+  } catch (err) {
+    diskFieldAltsWriteFailed = true;
+    console.warn('Read-only filesystem: skipped writing utils/fieldAlternatives.ts to disk', err);
+  }
+}
+
+async function generateFieldAlternativesForWord(
+  targetWord: Word,
+  allWords: Word[],
+  clientApiKey?: string
+): Promise<FieldNoteAlternativeEntry> {
+  const targetLower = targetWord.word.trim().toLowerCase();
+  const samePosWords = allWords.filter(
+    (w) =>
+      w.form.trim().toLowerCase() === targetWord.form.trim().toLowerCase() &&
+      w.word.trim().toLowerCase() !== targetLower
+  );
+  const samePosSet = new Set(samePosWords.map((w) => w.word.trim().toLowerCase()));
+  const resolvedKey = resolveGeminiKey(clientApiKey);
+  if (!resolvedKey || samePosWords.length === 0) {
+    return { strongFits: [], plausibleFits: [] };
+  }
+
+  const passage = (targetWord.fieldQuote || targetWord.example || '').trim();
+  const escapedTarget = targetWord.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const blanked = passage.replace(new RegExp(`\\b${escapedTarget}[a-z]*\\b`, 'gi'), '_____');
+  const lexiconRef = samePosWords.map((w) => `${w.word}: ${w.definition}`).join('\n');
+
+  const prompt = `Pick ONLY real same-part-of-speech words from the ALLOWED LEXICON that genuinely fit the "_____" blank.
+
+TARGET: "${targetWord.word}" (${targetWord.form}) — ${targetWord.definition}
+PASSAGE: ${blanked}
+
+ALLOWED LEXICON:
+${lexiconRef}
+
+Return strictly JSON:
+{
+  "strongFits": ["0 to 3 nearly interchangeable words from ALLOWED LEXICON"],
+  "plausibleFits": ["0 to 4 grammatically natural and semantically plausible words from ALLOWED LEXICON"]
+}
+Never force weak fits or invent words outside ALLOWED LEXICON.`;
+
+  try {
+    const raw = await generateGeminiJsonText(resolvedKey, prompt, 12000);
+    const parsed = parseJsonSafe<Partial<FieldNoteAlternativeEntry>>(raw, {});
+    const strongFits: string[] = [];
+    const strongSet = new Set<string>();
+    for (const c of Array.isArray(parsed.strongFits) ? parsed.strongFits : []) {
+      if (typeof c !== 'string') continue;
+      const lower = c.trim().toLowerCase();
+      if (lower && samePosSet.has(lower) && !strongSet.has(lower) && strongFits.length < 3) {
+        strongSet.add(lower);
+        strongFits.push(lower);
+      }
+    }
+    const plausibleFits: string[] = [];
+    const plausibleSet = new Set<string>();
+    for (const c of Array.isArray(parsed.plausibleFits) ? parsed.plausibleFits : []) {
+      if (typeof c !== 'string') continue;
+      const lower = c.trim().toLowerCase();
+      if (
+        lower &&
+        samePosSet.has(lower) &&
+        !strongSet.has(lower) &&
+        !plausibleSet.has(lower) &&
+        plausibleFits.length < 4
+      ) {
+        plausibleSet.add(lower);
+        plausibleFits.push(lower);
+      }
+    }
+    return { strongFits, plausibleFits };
+  } catch {
+    return { strongFits: [], plausibleFits: [] };
+  }
 }
 
 function readRawWordsFromDisk(): Word[] {
@@ -747,7 +924,11 @@ function getSupabaseAdmin() {
   return createClient(url, key);
 }
 
-async function syncWordToSupabase(w: Word, previousWordTerm?: string) {
+async function syncWordToSupabase(
+  w: Word,
+  previousWordTerm?: string,
+  fieldAlternatives?: FieldNoteAlternativeEntry
+) {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
   try {
@@ -782,22 +963,46 @@ async function syncWordToSupabase(w: Word, previousWordTerm?: string) {
       console.warn('Supabase stale deck cleanup failed:', staleDeckErr.message);
     }
 
+    const basePayload = {
+      deck_id: deckRow.id,
+      term: w.word,
+      part_of_speech: w.form,
+      definition: w.definition,
+      definition2: w.definition2 || null,
+      etymology: w.etymology,
+      origin: w.origin,
+      example_sentence: w.example,
+      status: 'approved',
+    };
+
+    const resolvedAlts = fieldAlternatives ?? w.fieldAlternatives ?? null;
+
     const { error: upsertErr } = await supabase.from('words').upsert(
       {
-        deck_id: deckRow.id,
-        term: w.word,
-        part_of_speech: w.form,
-        definition: w.definition,
-        definition2: w.definition2 || null,
-        etymology: w.etymology,
-        origin: w.origin,
-        example_sentence: w.example,
-        status: 'approved',
+        ...basePayload,
+        topic: getWordTopic(w),
+        field_quote: w.fieldQuote || null,
+        field_quote_author: w.fieldQuoteAuthor || null,
+        field_alternatives: resolvedAlts,
       },
       { onConflict: 'deck_id,term' }
     );
     if (upsertErr) {
-      console.warn(`Supabase word sync failed for "${w.word}":`, upsertErr.message);
+      // If 004_word_game_metadata.sql has not been applied yet, fall back cleanly to base schema
+      if (
+        /column|schema cache|field_quote|field_alternatives|own_words_scenario|topic/i.test(
+          upsertErr.message
+        )
+      ) {
+        const { error: fallbackErr } = await supabase
+          .from('words')
+          .upsert(basePayload, { onConflict: 'deck_id,term' });
+        if (fallbackErr) {
+          console.warn(`Supabase fallback word sync failed for "${w.word}":`, fallbackErr.message);
+        }
+      } else {
+        console.warn(`Supabase word sync failed for "${w.word}":`, upsertErr.message);
+      }
     }
   } catch (err) {
     console.warn(`Supabase word sync error for "${w.word}":`, err);
@@ -1302,6 +1507,7 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
         ? (body as { apiKey?: string }).apiKey
         : undefined;
     const morphemesMap = readMorphemesFromDisk();
+    const fieldAltsMap = readFieldAlternativesFromDisk();
 
     if (action === 'update_word') {
       const { index, updatedWord, morphemes } = body as {
@@ -1320,25 +1526,45 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
 
       const oldKey = prevTerm.toLowerCase();
       const newKey = cleanUpdated.word.toLowerCase();
+      const existingAlts = fieldAltsMap[oldKey];
       if (oldKey !== newKey) {
         delete morphemesMap[oldKey];
+        delete fieldAltsMap[oldKey];
       }
-      const needsRegen =
+
+      const needsMorphemeRegen =
         oldKey !== newKey ||
         prevWord.etymology.trim() !== cleanUpdated.etymology.trim() ||
         !morphemesMap[newKey];
-      if (morphemes && (morphemes.roots?.length || morphemes.prefixes?.length)) {
-        morphemesMap[newKey] = morphemes;
-      } else if (needsRegen) {
-        morphemesMap[newKey] = await generateMorphemeProfileForWord(
-          cleanUpdated,
-          apiKeyFromBody,
-          morphemesMap
-        );
-      }
+      const passageChanged =
+        oldKey !== newKey ||
+        prevWord.form.trim() !== cleanUpdated.form.trim() ||
+        prevWord.definition.trim() !== cleanUpdated.definition.trim() ||
+        prevWord.example.trim() !== cleanUpdated.example.trim() ||
+        (prevWord.fieldQuote || '').trim() !== (cleanUpdated.fieldQuote || '').trim();
+
+      const [nextMorphemes, nextAlts] = await Promise.all([
+        morphemes && (morphemes.roots?.length || morphemes.prefixes?.length)
+          ? Promise.resolve(morphemes)
+          : needsMorphemeRegen
+          ? generateMorphemeProfileForWord(cleanUpdated, apiKeyFromBody, morphemesMap)
+          : Promise.resolve(morphemesMap[newKey]),
+        passageChanged || !existingAlts
+          ? generateFieldAlternativesForWord(cleanUpdated, words, apiKeyFromBody)
+          : Promise.resolve(existingAlts),
+      ]);
+
+      morphemesMap[newKey] = nextMorphemes;
       writeMorphemesToDisk(morphemesMap);
 
-      await syncWordToSupabase(cleanUpdated, prevTerm);
+      if (nextAlts && (nextAlts.strongFits.length > 0 || nextAlts.plausibleFits.length > 0)) {
+        fieldAltsMap[newKey] = nextAlts;
+      } else {
+        delete fieldAltsMap[newKey];
+      }
+      writeFieldAlternativesToDisk(fieldAltsMap);
+
+      await syncWordToSupabase(cleanUpdated, prevTerm, nextAlts);
     } else if (action === 'delete_word') {
       const { index } = body as { index: number };
       if (index < 0 || index >= words.length) {
@@ -1347,8 +1573,11 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
       const removed = words.splice(index, 1)[0];
       writeRawWordsToDisk(words);
       if (removed?.word) {
-        delete morphemesMap[removed.word.toLowerCase()];
+        const removedKey = removed.word.toLowerCase();
+        delete morphemesMap[removedKey];
         writeMorphemesToDisk(morphemesMap);
+        delete fieldAltsMap[removedKey];
+        writeFieldAlternativesToDisk(fieldAltsMap);
         await deleteWordFromSupabase(removed.word);
       }
     } else if (action === 'add_word') {
@@ -1385,14 +1614,23 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
       words.push(cleanNew);
       writeRawWordsToDisk(words);
 
-      const profile =
+      const newKey = cleanNew.word.toLowerCase();
+      const [profile, generatedAlts] = await Promise.all([
         morphemes && (morphemes.roots?.length || morphemes.prefixes?.length)
-          ? morphemes
-          : await generateMorphemeProfileForWord(cleanNew, apiKeyFromBody, morphemesMap);
-      morphemesMap[cleanNew.word.toLowerCase()] = profile;
+          ? Promise.resolve(morphemes)
+          : generateMorphemeProfileForWord(cleanNew, apiKeyFromBody, morphemesMap),
+        generateFieldAlternativesForWord(cleanNew, words, apiKeyFromBody),
+      ]);
+
+      morphemesMap[newKey] = profile;
       writeMorphemesToDisk(morphemesMap);
 
-      await syncWordToSupabase(cleanNew);
+      if (generatedAlts.strongFits.length > 0 || generatedAlts.plausibleFits.length > 0) {
+        fieldAltsMap[newKey] = generatedAlts;
+        writeFieldAlternativesToDisk(fieldAltsMap);
+      }
+
+      await syncWordToSupabase(cleanNew, undefined, generatedAlts);
     } else if (action === 'approve_staged') {
       const { stagedId, approvedWord, morphemes, allowSimilar } = body as {
         stagedId: string;
@@ -1428,14 +1666,23 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
       words.push(cleanApproved);
       writeRawWordsToDisk(words);
 
-      const profile =
+      const approvedKey = cleanApproved.word.toLowerCase();
+      const [profile, generatedAlts] = await Promise.all([
         morphemes && (morphemes.roots?.length || morphemes.prefixes?.length)
-          ? morphemes
-          : await generateMorphemeProfileForWord(cleanApproved, apiKeyFromBody, morphemesMap);
-      morphemesMap[cleanApproved.word.toLowerCase()] = profile;
+          ? Promise.resolve(morphemes)
+          : generateMorphemeProfileForWord(cleanApproved, apiKeyFromBody, morphemesMap),
+        generateFieldAlternativesForWord(cleanApproved, words, apiKeyFromBody),
+      ]);
+
+      morphemesMap[approvedKey] = profile;
       writeMorphemesToDisk(morphemesMap);
 
-      await syncWordToSupabase(cleanApproved);
+      if (generatedAlts.strongFits.length > 0 || generatedAlts.plausibleFits.length > 0) {
+        fieldAltsMap[approvedKey] = generatedAlts;
+        writeFieldAlternativesToDisk(fieldAltsMap);
+      }
+
+      await syncWordToSupabase(cleanApproved, undefined, generatedAlts);
 
       const staged = readStagedWords().filter((sw) => sw.id !== stagedId);
       writeStagedWords(staged);

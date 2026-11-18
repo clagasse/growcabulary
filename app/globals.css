@@ -80,3 +80,53 @@
 .flashcard-back {
   transform: rotateY(180deg);
 }
+
+/* Living Botanical Conservatory Animations */
+@keyframes plant-sway {
+  0%,
+  100% {
+    transform: rotate(-1.6deg);
+  }
+  50% {
+    transform: rotate(1.8deg);
+  }
+}
+
+@keyframes dew-bob {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes shake-gentle {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-plant-sway {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: plant-sway 4.8s ease-in-out infinite;
+}
+
+.animate-dew-bob {
+  animation: dew-bob 2.4s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake-gentle 0.36s ease-in-out;
+}

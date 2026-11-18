@@ -14,7 +14,9 @@ import {
 
 interface OnboardingTutorialModalProps {
   isOpen: boolean;
+  isNewUser?: boolean;
   onClose: () => void;
+  onSkipOrExit: () => void;
   onStartSeedSprout: () => void;
 }
 
@@ -65,10 +67,25 @@ const STEPS = [
 
 export const OnboardingTutorialModal: React.FC<OnboardingTutorialModalProps> = ({
   isOpen,
+  isNewUser = true,
   onClose,
+  onSkipOrExit,
   onStartSeedSprout,
 }) => {
   const [stepIdx, setStepIdx] = useState(0);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setStepIdx(0);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onSkipOrExit();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onSkipOrExit]);
 
   if (!isOpen) return null;
 
@@ -82,6 +99,11 @@ export const OnboardingTutorialModal: React.FC<OnboardingTutorialModalProps> = (
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-tutorial-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onSkipOrExit();
+        }
+      }}
     >
       <div className="journal-card w-full max-w-xl rounded-3xl overflow-hidden animate-scale-in max-h-[92vh] overflow-y-auto">
         <div className="h-1.5 w-full bg-gradient-to-r from-emerald-700 via-amber-500 to-purple-700" />
@@ -95,11 +117,11 @@ export const OnboardingTutorialModal: React.FC<OnboardingTutorialModalProps> = (
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={onSkipOrExit}
               className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-950 px-2.5 py-1 rounded-full hover:bg-emerald-50 transition-colors"
-              aria-label="Close tutorial"
+              aria-label="Skip tutorial and start 3-word intro"
             >
-              <span>Skip</span>
+              <span>{isNewUser ? 'Skip & Play' : 'Close'}</span>
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -191,20 +213,26 @@ export const OnboardingTutorialModal: React.FC<OnboardingTutorialModalProps> = (
                 </button>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-4 py-2.5 rounded-xl bg-[#F4F7F0] hover:bg-emerald-100 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
-                  >
-                    Explore Main Menu
-                  </button>
+                  {!isNewUser && (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2.5 rounded-xl bg-[#F4F7F0] hover:bg-emerald-100 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
+                    >
+                      Explore Main Menu
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={onStartSeedSprout}
                     className="px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-black uppercase tracking-wider shadow-md flex items-center justify-center gap-1.5 transition-all"
                   >
                     <Sprout className="w-3.5 h-3.5" />
-                    <span>Start Seed Sprout (Pasture)</span>
+                    <span>
+                      {isNewUser
+                        ? 'Start 3-Word Intro'
+                        : 'Start Seed Sprout (Pasture)'}
+                    </span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </>

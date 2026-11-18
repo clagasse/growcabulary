@@ -17,6 +17,11 @@ export type GrowthStage = 'seed' | 'sprout' | 'bud' | 'bloom' | 'perennial';
 
 export type RecallOutcome = 'clean' | 'assisted' | 'missed' | 'composted';
 
+export interface FieldNoteAlternativeEntry {
+  strongFits: string[];
+  plausibleFits: string[];
+}
+
 export interface Word {
   word: string;
   seed: SeedType;
@@ -28,6 +33,7 @@ export interface Word {
   example: string;
   fieldQuote?: string;
   fieldQuoteAuthor?: string;
+  fieldAlternatives?: FieldNoteAlternativeEntry;
   origin: string;
   isAiGenerated?: boolean;
 }
@@ -44,6 +50,8 @@ export interface GardenEntry extends Word {
   growthStage?: GrowthStage;
   modesMastered?: GameMode[];
   userSentence?: string;
+  isFavorite?: boolean;
+  favoritedAt?: string;
   isComposted?: boolean;
   compostedAt?: string;
 }

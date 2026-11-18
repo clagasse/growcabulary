@@ -28,99 +28,6 @@ export interface WordMorphemeProfile {
 }
 
 export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
-  "abjection": {
-    "prefixes": [
-      {
-        "form": "ab-",
-        "canonicalId": "prefix-ab",
-        "meaning": "away, off, from"
-      }
-    ],
-    "roots": [
-      {
-        "form": "ject",
-        "canonicalId": "iacere",
-        "displayRoot": "iacere / ject-",
-        "meaning": "to throw, cast, hurl",
-        "origin": "Latin",
-        "pieRoot": "*ye- / *yeh₁-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ion",
-        "meaning": "act, state, or condition (noun)"
-      }
-    ]
-  },
-  "dolor": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "dolor",
-        "canonicalId": "dolere",
-        "displayRoot": "dolere / dolor",
-        "meaning": "to feel pain, suffer, grieve",
-        "origin": "Latin",
-        "pieRoot": "*delh₁-",
-        "pieGroupId": "pie:delh"
-      }
-    ],
-    "suffixes": []
-  },
-  "sanguinity": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "sanguin",
-        "canonicalId": "sanguis",
-        "displayRoot": "sanguis / sanguin-",
-        "meaning": "blood, kinship, vitality",
-        "origin": "Latin",
-        "pieRoot": "*eshr-",
-        "pieGroupId": "pie:eshr"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ity",
-        "meaning": "state or quality (noun)"
-      }
-    ]
-  },
-  "saudade": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "saudad",
-        "canonicalId": "solus",
-        "displayRoot": "solus / solari",
-        "meaning": "alone, solitary; solitude",
-        "origin": "Portuguese",
-        "pieRoot": "*se- / *swelo-",
-        "pieGroupId": "pie:se-apart"
-      }
-    ],
-    "suffixes": []
-  },
-  "tristesse": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "trist",
-        "canonicalId": "tristis",
-        "displayRoot": "tristis",
-        "meaning": "sad, sorrowful, mournful",
-        "origin": "French"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-esse",
-        "meaning": "state, condition, or quality (noun)"
-      }
-    ]
-  },
   "weltschmerz": {
     "prefixes": [],
     "roots": [
@@ -1696,159 +1603,6 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
       }
     ]
   },
-  "inimical": {
-    "prefixes": [
-      {
-        "form": "in-",
-        "canonicalId": "prefix-in",
-        "meaning": "not, un-"
-      }
-    ],
-    "roots": [
-      {
-        "form": "imic",
-        "canonicalId": "amicus",
-        "displayRoot": "amare / amicus",
-        "meaning": "to love, friend (inimicus: enemy)",
-        "origin": "Latin",
-        "pieRoot": "*kama-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-al",
-        "meaning": "relating to, pertaining to (adjective)"
-      }
-    ]
-  },
-  "inveigle": {
-    "prefixes": [
-      {
-        "form": "in-",
-        "canonicalId": "prefix-in",
-        "meaning": "in, into (substituting Latin ab- 'without')"
-      }
-    ],
-    "roots": [
-      {
-        "form": "veigl",
-        "canonicalId": "oculus",
-        "displayRoot": "oculus",
-        "meaning": "eye, sight",
-        "origin": "Latin",
-        "pieRoot": "*okʷ-",
-        "pieGroupId": "pie:okw"
-      }
-    ],
-    "suffixes": []
-  },
-  "lachrymose": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "lachrym",
-        "canonicalId": "lacrima",
-        "displayRoot": "lacrima",
-        "meaning": "tear",
-        "origin": "Latin",
-        "pieRoot": "*dakru-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ose",
-        "meaning": "full of, given to (adjective)"
-      }
-    ]
-  },
-  "lacuna": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "lacun",
-        "canonicalId": "lacus",
-        "displayRoot": "lacus / lacuna",
-        "meaning": "pit, hollow, cavity, lake",
-        "origin": "Latin",
-        "pieRoot": "*laku-"
-      }
-    ],
-    "suffixes": []
-  },
-  "lambent": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "lamb",
-        "canonicalId": "lambere",
-        "displayRoot": "lambere",
-        "meaning": "to lick, lap",
-        "origin": "Latin",
-        "pieRoot": "*lab-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ent",
-        "meaning": "performing an action, state of being (adjective)"
-      }
-    ]
-  },
-  "lassitude": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "lass",
-        "canonicalId": "lassus",
-        "displayRoot": "lassus",
-        "meaning": "weary, faint, tired",
-        "origin": "Latin",
-        "pieRoot": "*lehd-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-itude",
-        "meaning": "state, condition, or quality of (noun)"
-      }
-    ]
-  },
-  "legerdemain": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "leger",
-        "canonicalId": "levis",
-        "displayRoot": "levis / levare",
-        "meaning": "light in weight; to lift, lighten",
-        "origin": "Latin",
-        "pieRoot": "*legʷh-"
-      },
-      {
-        "form": "main",
-        "canonicalId": "manus",
-        "displayRoot": "manus",
-        "meaning": "hand, manual craft",
-        "origin": "Latin",
-        "pieRoot": "*man-",
-        "pieGroupId": "pie:man"
-      }
-    ],
-    "suffixes": []
-  },
-  "martinet": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "martinet",
-        "canonicalId": "martinet",
-        "displayRoot": "Martinet",
-        "meaning": "Jean Martinet (French drillmaster eponym)",
-        "origin": "French"
-      }
-    ],
-    "suffixes": []
-  },
   "munificent": {
     "prefixes": [],
     "roots": [
@@ -2573,26 +2327,6 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
       }
     ],
     "suffixes": []
-  },
-  "poignancy": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "poign",
-        "canonicalId": "pungere",
-        "displayRoot": "pungere / punct-: to prick, pierce, sting",
-        "meaning": "to prick, pierce, sting",
-        "origin": "Latin",
-        "pieRoot": "*pewǵ-",
-        "pieGroupId": "pie:pewg"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ancy",
-        "meaning": "state, quality, or degree of (noun)"
-      }
-    ]
   },
   "torpor": {
     "prefixes": [],
@@ -12504,32 +12238,6 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
       }
     ]
   },
-  "prudent": {
-    "prefixes": [
-      {
-        "form": "pro-",
-        "canonicalId": "prefix-pre",
-        "meaning": "before, forward, ahead"
-      }
-    ],
-    "roots": [
-      {
-        "form": "ud",
-        "canonicalId": "videre",
-        "displayRoot": "videre / vis-",
-        "meaning": "to see, look, foresee",
-        "origin": "Latin",
-        "pieRoot": "*weid-",
-        "pieGroupId": "pie:weid"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ent",
-        "meaning": "performing an action, being (adjective)"
-      }
-    ]
-  },
   "punctual": {
     "prefixes": [],
     "roots": [
@@ -12911,116 +12619,6 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
       }
     ]
   },
-  "volatile": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "volat-",
-        "canonicalId": "volare",
-        "displayRoot": "volare",
-        "meaning": "to fly",
-        "origin": "Latin",
-        "pieRoot": "*gwel-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ile",
-        "meaning": "capable of, suited for (adjective)"
-      }
-    ]
-  },
-  "whimsical": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "whims",
-        "canonicalId": "whim",
-        "displayRoot": "whim",
-        "meaning": "fanciful notion, capricious turn of mind",
-        "origin": "English"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ic",
-        "meaning": "having the character of (adjective)"
-      },
-      {
-        "form": "-al",
-        "meaning": "relating to (adjective)"
-      }
-    ]
-  },
-  "yearning": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "yearn",
-        "canonicalId": "geornan",
-        "displayRoot": "geornan / giernan",
-        "meaning": "to desire, be eager",
-        "origin": "Old English",
-        "pieRoot": "*gher-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ing",
-        "meaning": "action, process, or state (noun / participle)"
-      }
-    ]
-  },
-  "zany": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "zan-",
-        "canonicalId": "zanni",
-        "displayRoot": "Zanni / Giovanni",
-        "meaning": "stock comic servant clown",
-        "origin": "Italian"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-y",
-        "meaning": "characterized by (adjective)"
-      }
-    ]
-  },
-  "zealous": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "zeal-",
-        "canonicalId": "zelos",
-        "displayRoot": "zēlos",
-        "meaning": "zeal, ardor, emulation",
-        "origin": "Greek",
-        "pieRoot": "*yeh-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ous",
-        "meaning": "full of, possessing (adjective)"
-      }
-    ]
-  },
-  "zest": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "zest",
-        "canonicalId": "zeste",
-        "displayRoot": "zeste",
-        "meaning": "citrus peel, savory flavor",
-        "origin": "French"
-      }
-    ],
-    "suffixes": []
-  },
   "tenebrific": {
     "prefixes": [],
     "roots": [
@@ -13110,112 +12708,6 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
     ],
     "suffixes": []
   },
-  "qualm": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "qualm",
-        "canonicalId": "cwealm-oe",
-        "displayRoot": "cwealm",
-        "meaning": "death, disaster, torment, pestilence",
-        "origin": "Old English",
-        "pieRoot": "*gʷelH-"
-      }
-    ],
-    "suffixes": []
-  },
-  "virtuoso": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "virtu",
-        "canonicalId": "vir",
-        "displayRoot": "vir / virtus",
-        "meaning": "excellence, merit, moral strength, power",
-        "origin": "Italian (from Latin virtus)",
-        "pieRoot": "*wih-ro-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-oso",
-        "meaning": "full of, possessing the quality of"
-      }
-    ]
-  },
-  "pungent": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "pung",
-        "canonicalId": "pungere",
-        "displayRoot": "pungere",
-        "meaning": "to prick, pierce, sting",
-        "origin": "Latin",
-        "pieRoot": "*pewǵ-",
-        "pieGroupId": "pie:pewg"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ent",
-        "meaning": "present participle ending; doing or performing"
-      }
-    ]
-  },
-  "empathy": {
-    "prefixes": [
-      {
-        "form": "em-",
-        "canonicalId": "prefix-in",
-        "meaning": "in, into, within"
-      }
-    ],
-    "roots": [
-      {
-        "form": "path",
-        "canonicalId": "pathos",
-        "displayRoot": "pathos",
-        "meaning": "feeling, suffering, passion",
-        "origin": "Ancient Greek",
-        "pieRoot": "*kʷendʰ-",
-        "pieGroupId": "pie:kwendh"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-y",
-        "meaning": "state, condition, or quality of"
-      }
-    ]
-  },
-  "blasphemy": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "blas-",
-        "canonicalId": "blaptein",
-        "displayRoot": "blaptō",
-        "meaning": "to injure, damage",
-        "origin": "Greek"
-      },
-      {
-        "form": "-phem-",
-        "canonicalId": "pheme",
-        "displayRoot": "phēmē",
-        "meaning": "utterance, speech",
-        "origin": "Greek",
-        "pieRoot": "*bʰeh₂-",
-        "pieGroupId": "pie:bheh"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-y",
-        "meaning": "state, condition, or act of"
-      }
-    ]
-  },
   "interlocutor": {
     "prefixes": [
       {
@@ -13239,6 +12731,899 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
       {
         "form": "-or",
         "meaning": "one who, person who performs an action"
+      }
+    ]
+  },
+  "bespoke": {
+    "prefixes": [
+      {
+        "form": "be-",
+        "canonicalId": "prefix-be",
+        "meaning": "about"
+      }
+    ],
+    "roots": [
+      {
+        "form": "spoke",
+        "canonicalId": "sprecan",
+        "displayRoot": "sprecan",
+        "meaning": "to speak",
+        "origin": "Old English"
+      }
+    ],
+    "suffixes": []
+  },
+  "espalier": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "spall-",
+        "canonicalId": "spalla",
+        "displayRoot": "spalla",
+        "meaning": "shoulder",
+        "origin": "Italian"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ier",
+        "meaning": "thing used for, support (from Italian -iera)"
+      }
+    ]
+  },
+  "badinage": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "bad-",
+        "canonicalId": "badar",
+        "displayRoot": "badar",
+        "meaning": "to gape or open one's mouth foolishly",
+        "origin": "Provençal"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-in",
+        "meaning": "diminutive suffix forming an adjective/agent or verb base"
+      },
+      {
+        "form": "-age",
+        "meaning": "action, process, or result of"
+      }
+    ]
+  },
+  "euphemism": {
+    "prefixes": [
+      {
+        "form": "eu-",
+        "canonicalId": "prefix-eu",
+        "meaning": "good, well"
+      }
+    ],
+    "roots": [
+      {
+        "form": "phem",
+        "canonicalId": "pheme",
+        "displayRoot": "pheme",
+        "meaning": "speech, utterance",
+        "origin": "Greek",
+        "pieRoot": "*bʰeh₂-",
+        "pieGroupId": "pie:bheh"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ism",
+        "meaning": "process, practice, or result of"
+      }
+    ]
+  },
+  "agnostic": {
+    "prefixes": [
+      {
+        "form": "a-",
+        "canonicalId": "prefix-a",
+        "meaning": "without, not"
+      }
+    ],
+    "roots": [
+      {
+        "form": "gnos",
+        "canonicalId": "gignoskein",
+        "displayRoot": "gignōskein / gnō-",
+        "meaning": "to know, known",
+        "origin": "Greek",
+        "pieRoot": "*ǵneh₃-",
+        "pieGroupId": "pie:gneh"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-tic",
+        "meaning": "relating to, of the nature of"
+      }
+    ]
+  },
+  "cadence": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "cad",
+        "canonicalId": "cadere",
+        "displayRoot": "cadere",
+        "meaning": "to fall",
+        "origin": "Latin",
+        "pieRoot": "*ḱad-",
+        "pieGroupId": "pie:kad"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ence",
+        "meaning": "state, quality, or action of"
+      }
+    ]
+  },
+  "commiserate": {
+    "prefixes": [
+      {
+        "form": "com-",
+        "canonicalId": "prefix-com",
+        "meaning": "with, together, intensive"
+      }
+    ],
+    "roots": [
+      {
+        "form": "miser",
+        "canonicalId": "miser",
+        "displayRoot": "miser / miserari",
+        "meaning": "wretched, to lament or pity",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ate",
+        "meaning": "to act, to cause, to make"
+      }
+    ]
+  },
+  "teetotaller": {
+    "prefixes": [
+      {
+        "form": "tee-",
+        "canonicalId": "reduplication-t",
+        "meaning": "emphatic reduplication of the letter 't' for emphasis"
+      }
+    ],
+    "roots": [
+      {
+        "form": "total",
+        "canonicalId": "totus",
+        "displayRoot": "totus",
+        "meaning": "all, whole, entire",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-er",
+        "meaning": "person associated with or practicing"
+      }
+    ]
+  },
+  "hubris": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "hubris",
+        "canonicalId": "hybris",
+        "displayRoot": "hybris",
+        "meaning": "insolence, wanton violence, outrageous presumption",
+        "origin": "Greek"
+      }
+    ],
+    "suffixes": []
+  },
+  "umwelt": {
+    "prefixes": [
+      {
+        "form": "um-",
+        "canonicalId": "prefix-um",
+        "meaning": "around"
+      }
+    ],
+    "roots": [
+      {
+        "form": "welt",
+        "canonicalId": "welt",
+        "displayRoot": "Welt",
+        "meaning": "world",
+        "origin": "German"
+      }
+    ],
+    "suffixes": []
+  },
+  "persiflage": {
+    "prefixes": [
+      {
+        "form": "per-",
+        "canonicalId": "prefix-per",
+        "meaning": "thoroughly, intensively"
+      }
+    ],
+    "roots": [
+      {
+        "form": "sifl-",
+        "canonicalId": "sibilare",
+        "displayRoot": "sibilare",
+        "meaning": "to hiss or whistle",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-age",
+        "meaning": "action, process, or result of"
+      }
+    ]
+  },
+  "hackneyed": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "hackney",
+        "canonicalId": "hackney",
+        "displayRoot": "Hackney",
+        "meaning": "village celebrated for pasturelands/workhorses; a hired horse subjected to common labor",
+        "origin": "Old English"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ed",
+        "meaning": "past participle suffix indicating made into, overworked, or exhausted"
+      }
+    ]
+  },
+  "bromide": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "brom-",
+        "canonicalId": "bromos",
+        "displayRoot": "brōmos",
+        "meaning": "stench",
+        "origin": "Greek"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ide",
+        "meaning": "chemical suffix denoting a compound or derivative"
+      }
+    ]
+  },
+  "uxorious": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "uxor",
+        "canonicalId": "uxor",
+        "displayRoot": "uxor",
+        "meaning": "wife",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ious",
+        "meaning": "full of, having the quality of"
+      }
+    ]
+  },
+  "gauche": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "gauche",
+        "canonicalId": "gauchir",
+        "displayRoot": "gauchir",
+        "meaning": "to turn aside, walk crookedly, left",
+        "origin": "Old French"
+      }
+    ],
+    "suffixes": []
+  },
+  "lavish": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "lav-",
+        "canonicalId": "lavere",
+        "displayRoot": "lavare / lavere",
+        "meaning": "to wash, bathe, or drench",
+        "origin": "Latin",
+        "pieRoot": "*lowh₁-",
+        "pieGroupId": "pie:lowh"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ish",
+        "meaning": "forming an adjective or noun (from French -asse)"
+      }
+    ]
+  },
+  "adroit": {
+    "prefixes": [
+      {
+        "form": "a-",
+        "canonicalId": "prefix-ad",
+        "meaning": "to, toward"
+      }
+    ],
+    "roots": [
+      {
+        "form": "droit",
+        "canonicalId": "regere",
+        "displayRoot": "regere / directus",
+        "meaning": "straight, right, direct",
+        "origin": "Latin",
+        "pieRoot": "*reg-",
+        "pieGroupId": "pie:reg"
+      }
+    ],
+    "suffixes": []
+  },
+  "fidelity": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "fidel-",
+        "canonicalId": "fidere",
+        "displayRoot": "fidere / fides",
+        "meaning": "trust, faith",
+        "origin": "Latin",
+        "pieRoot": "*bʰeydʰ-",
+        "pieGroupId": "pie:bheydh"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ity",
+        "meaning": "state, quality, or condition of"
+      }
+    ]
+  },
+  "epiphany": {
+    "prefixes": [
+      {
+        "form": "epi-",
+        "canonicalId": "prefix-epi",
+        "meaning": "upon"
+      }
+    ],
+    "roots": [
+      {
+        "form": "phan",
+        "canonicalId": "phainein",
+        "displayRoot": "phainein",
+        "meaning": "to show, appear",
+        "origin": "Greek",
+        "pieRoot": "*bʰeh₂-",
+        "pieGroupId": "pie:bheh"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-y",
+        "meaning": "state, quality, or instance of"
+      }
+    ]
+  },
+  "scintillating": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "scintill",
+        "canonicalId": "scintilla",
+        "displayRoot": "scintilla",
+        "meaning": "spark",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ate",
+        "meaning": "to make, cause to be, or produce"
+      },
+      {
+        "form": "-ing",
+        "meaning": "expressing the present participle or ongoing action"
+      }
+    ]
+  },
+  "incendiary": {
+    "prefixes": [
+      {
+        "form": "in-",
+        "canonicalId": "prefix-in",
+        "meaning": "into, upon"
+      }
+    ],
+    "roots": [
+      {
+        "form": "cend",
+        "canonicalId": "candere",
+        "displayRoot": "candere",
+        "meaning": "to glow or shine",
+        "origin": "Latin",
+        "pieRoot": "*kand-",
+        "pieGroupId": "pie:kand"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ium",
+        "meaning": "forming abstract or collective nouns (here via incendium)"
+      },
+      {
+        "form": "-ary",
+        "meaning": "pertaining to, of the nature of, or one connected with"
+      }
+    ]
+  },
+  "persona": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "persona",
+        "canonicalId": "persona",
+        "displayRoot": "persona",
+        "meaning": "mask, dramatic character",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": []
+  },
+  "profane": {
+    "prefixes": [
+      {
+        "form": "pro-",
+        "canonicalId": "prefix-pro",
+        "meaning": "before, outside"
+      }
+    ],
+    "roots": [
+      {
+        "form": "-fan-",
+        "canonicalId": "fanum",
+        "displayRoot": "fanum",
+        "meaning": "temple, sacred precinct",
+        "origin": "Latin",
+        "pieRoot": "*dʰh₁s-no-",
+        "pieGroupId": "pie:dhhsno"
+      }
+    ],
+    "suffixes": []
+  },
+  "unilateral": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "uni-",
+        "canonicalId": "unus",
+        "displayRoot": "unus",
+        "meaning": "one",
+        "origin": "Latin",
+        "pieRoot": "*oi-no-",
+        "pieGroupId": "pie:oino"
+      },
+      {
+        "form": "later-",
+        "canonicalId": "latus",
+        "displayRoot": "latus",
+        "meaning": "side",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-al",
+        "meaning": "pertaining to or of the nature of"
+      }
+    ]
+  },
+  "titillate": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "titill",
+        "canonicalId": "titillare",
+        "displayRoot": "titillare",
+        "meaning": "to tickle, provoke pleasurable irritation",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ate",
+        "meaning": "to cause, make, or act upon"
+      }
+    ]
+  },
+  "supersede": {
+    "prefixes": [
+      {
+        "form": "super-",
+        "canonicalId": "prefix-super",
+        "meaning": "above, over"
+      }
+    ],
+    "roots": [
+      {
+        "form": "sede",
+        "canonicalId": "sedere",
+        "displayRoot": "sedere",
+        "meaning": "to sit",
+        "origin": "Latin",
+        "pieRoot": "*sed-",
+        "pieGroupId": "pie:sed"
+      }
+    ],
+    "suffixes": []
+  },
+  "exuberance": {
+    "prefixes": [
+      {
+        "form": "ex-",
+        "canonicalId": "prefix-ex",
+        "meaning": "thoroughly"
+      }
+    ],
+    "roots": [
+      {
+        "form": "uber",
+        "canonicalId": "uber",
+        "displayRoot": "uber",
+        "meaning": "udder, fertile breast, fruitful",
+        "origin": "Latin",
+        "pieRoot": "*h₁ówHdʰ-r̥",
+        "pieGroupId": "pie:howhdhr"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ance",
+        "meaning": "state or quality of"
+      }
+    ]
+  },
+  "veto": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "veto",
+        "canonicalId": "vetare",
+        "displayRoot": "vetare / veto",
+        "meaning": "to forbid, prohibit, oppose",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": []
+  },
+  "symbiosis": {
+    "prefixes": [
+      {
+        "form": "sym-",
+        "canonicalId": "prefix-syn",
+        "meaning": "together, with"
+      }
+    ],
+    "roots": [
+      {
+        "form": "bio",
+        "canonicalId": "bios",
+        "displayRoot": "bios / biont-",
+        "meaning": "life, living organism",
+        "origin": "Greek",
+        "pieRoot": "*gʷei-",
+        "pieGroupId": "pie:gwei"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-sis",
+        "meaning": "state, condition, or process of (noun)"
+      }
+    ]
+  },
+  "erosion": {
+    "prefixes": [
+      {
+        "form": "e-",
+        "canonicalId": "prefix-ex",
+        "meaning": "out of, away, completely"
+      }
+    ],
+    "roots": [
+      {
+        "form": "ros",
+        "canonicalId": "rodere",
+        "displayRoot": "rodere / ros-",
+        "meaning": "to gnaw, wear away",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ion",
+        "meaning": "act, process, or result of (noun)"
+      }
+    ]
+  },
+  "boycott": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "boycott",
+        "canonicalId": "boycott",
+        "displayRoot": "Boycott",
+        "meaning": "Captain Charles Boycott (eponymous collective refusal)",
+        "origin": "English"
+      }
+    ],
+    "suffixes": []
+  },
+  "jargon": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "jargon",
+        "canonicalId": "jargon",
+        "displayRoot": "jargon / gergon",
+        "meaning": "chattering of birds, specialized speech",
+        "origin": "Old French"
+      }
+    ],
+    "suffixes": []
+  },
+  "satire": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "satire",
+        "canonicalId": "satis",
+        "displayRoot": "satis / satura",
+        "meaning": "full, enough, medley",
+        "origin": "Latin",
+        "pieRoot": "*seh₂-",
+        "pieGroupId": "pie:seh"
+      }
+    ],
+    "suffixes": []
+  },
+  "nuance": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "nu",
+        "canonicalId": "nubes",
+        "displayRoot": "nubes / nue",
+        "meaning": "cloud, shade, soft gradation",
+        "origin": "French",
+        "pieRoot": "*nebʰ-"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ance",
+        "meaning": "state or quality of (noun)"
+      }
+    ]
+  },
+  "dogma": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "dog",
+        "canonicalId": "doxa",
+        "displayRoot": "doxa / dogma",
+        "meaning": "opinion, belief, seem, decree",
+        "origin": "Ancient Greek",
+        "pieRoot": "*dek-",
+        "pieGroupId": "pie:dek"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ma",
+        "meaning": "result or object of an action (noun)"
+      }
+    ]
+  },
+  "mundane": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "mund",
+        "canonicalId": "mundus",
+        "displayRoot": "mundus",
+        "meaning": "world, earthly sphere; clean, ordered",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ane",
+        "meaning": "belonging to, characteristic of (adjective)"
+      }
+    ]
+  },
+  "veneer": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "veneer",
+        "canonicalId": "fournir",
+        "displayRoot": "furnieren / fournir",
+        "meaning": "to furnish, equip, overlay thinly",
+        "origin": "German"
+      }
+    ],
+    "suffixes": []
+  },
+  "dubious": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "dub",
+        "canonicalId": "dubius",
+        "displayRoot": "dubius / duo",
+        "meaning": "two-way, wavering, doubtful",
+        "origin": "Latin",
+        "pieRoot": "*dwóh₁"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ious",
+        "meaning": "characterized by, full of (adjective)"
+      }
+    ]
+  },
+  "empirical": {
+    "prefixes": [
+      {
+        "form": "em-",
+        "canonicalId": "prefix-in",
+        "meaning": "in, into, upon"
+      }
+    ],
+    "roots": [
+      {
+        "form": "pir",
+        "canonicalId": "peira",
+        "displayRoot": "peira / empeiria",
+        "meaning": "trial, test, practical experience",
+        "origin": "Greek",
+        "pieRoot": "*per-",
+        "pieGroupId": "pie:per"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ical",
+        "meaning": "pertaining to, characterized by (adjective)"
+      }
+    ]
+  },
+  "axiom": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "ax",
+        "canonicalId": "agein",
+        "displayRoot": "axios / agein",
+        "meaning": "worthy, weighing equally, to lead or balance",
+        "origin": "Greek",
+        "pieRoot": "*aǵ-",
+        "pieGroupId": "pie:ag"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-iom",
+        "meaning": "result or principle established (noun)"
+      }
+    ]
+  },
+  "aloof": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "aloof",
+        "canonicalId": "loef",
+        "displayRoot": "loef / luff",
+        "meaning": "windward side of a ship; steered clear",
+        "origin": "Dutch"
+      }
+    ],
+    "suffixes": []
+  },
+  "brazen": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "braz",
+        "canonicalId": "braes-oe",
+        "displayRoot": "bræs",
+        "meaning": "brass, bronze, hardened metal",
+        "origin": "Old English"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-en",
+        "meaning": "made of, resembling in quality (adjective)"
+      }
+    ]
+  },
+  "fickle": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "fick",
+        "canonicalId": "ficol-oe",
+        "displayRoot": "ficol",
+        "meaning": "deceitful, restless, changeable",
+        "origin": "Old English"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-le",
+        "meaning": "prone to, characterized by (adjective)"
+      }
+    ]
+  },
+  "profound": {
+    "prefixes": [
+      {
+        "form": "pro-",
+        "canonicalId": "prefix-pro",
+        "meaning": "forth, forward, before"
+      }
+    ],
+    "roots": [
+      {
+        "form": "found",
+        "canonicalId": "fundus",
+        "displayRoot": "fundus",
+        "meaning": "bottom, base, depth",
+        "origin": "Latin",
+        "pieRoot": "*bʰudʰ-"
+      }
+    ],
+    "suffixes": []
+  },
+  "volatile": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "volat",
+        "canonicalId": "volare",
+        "displayRoot": "volare / volatilis",
+        "meaning": "to fly, take wing, fleeting",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ile",
+        "meaning": "capable of, prone to (adjective)"
       }
     ]
   }

@@ -1,15 +1,16 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Word, GardenEntry, GrowthStage, RecallOutcome, RoundEntryResult } from '../../types';
+import { Word, GardenEntry, RecallOutcome, RoundEntryResult } from '../../types';
 import {
   ORIGIN_EMOJI_MAP,
-  GROWTH_STAGE_META,
   getDifficultyMeta,
   getTopicMeta,
+  getWordTopic,
 } from '../../constants';
 import { getFieldNotePassage } from '../../utils/fieldQuotes';
-import { getSafeEtymologyHint } from '../../utils/etymology';
+import { evaluateFieldNoteChoice, FieldNoteFitTier } from '../../utils/fieldAlternatives';
+import { SpeakWordButton, speakWord } from '../SpeakWordButton';
 import {
   DECAY_WINDOW_SECONDS,
   LETTER_HINT_PENALTY,
@@ -25,22 +26,28 @@ import {
   BookOpen,
   ArrowRight,
   Archive,
-  ChevronDown,
-  Search,
-  Sparkles,
   Filter,
-  Eye,
-  X,
   Sprout,
 } from 'lucide-react';
 
 interface BotanistFieldNotesGameProps {
   roundWords: Word[];
   discoveredPool: (GardenEntry | Word)[];
+  fallbackPool?: Word[];
   isScoredMode?: boolean;
+  isOverlayActive?: boolean;
   onRecordOutcome: (word: Word, outcome: RecallOutcome) => RoundEntryResult;
   onCompleteRound: (results: RoundEntryResult[]) => void;
   onSwitchToSeedSprout?: () => void;
+}
+
+function hashSeed(input: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
 }
 
 function splitSentenceAroundTarget(
@@ -71,31 +78,106 @@ function splitSentenceAroundTarget(
   };
 }
 
+function buildTenWordChoices(
+  targetWord: Word,
+  primaryPool: (GardenEntry | Word)[],
+  fallbackPool: Word[]
+): (GardenEntry | Word)[] {
+  const targetLower = targetWord.word.toLowerCase();
+  const seed = hashSeed(targetLower);
+  const picked: (GardenEntry | Word)[] = [targetWord];
+  const used = new Set<string>([targetLower]);
+
+  const tryAdd = (w: GardenEntry | Word) => {
+    if (picked.length >= 10) return;
+    const key = w.word.toLowerCase();
+    if (used.has(key)) return;
+    used.add(key);
+    picked.push(w);
+  };
+
+  // Deduplicate combined candidates while keeping deterministic rotation
+  const dedupedPrimary = primaryPool.filter(
+    (w) => !(w as GardenEntry).isComposted && w.word.toLowerCase() !== targetLower
+  );
+
+  // Include up to 2 valid strong/plausible alternatives from the pool when available
+  const altMatches = dedupedPrimary
+    .map((w) => ({ w, ev: evaluateFieldNoteChoice(targetWord, w.word) }))
+    .filter((x) => x.ev.tier === 'strong' || x.ev.tier === 'plausible')
+    .sort((a, b) => {
+      if (a.ev.scoreMultiplier !== b.ev.scoreMultiplier) {
+        return b.ev.scoreMultiplier - a.ev.scoreMultiplier;
+      }
+      return (hashSeed(a.w.word) ^ seed) - (hashSeed(b.w.word) ^ seed);
+    });
+  for (const m of altMatches.slice(0, 2)) {
+    tryAdd(m.w);
+  }
+
+  const sortByRelevanceAndSeed = (items: (GardenEntry | Word)[]) =>
+    [...items].sort((a, b) => {
+      const aForm = a.form.toLowerCase() === targetWord.form.toLowerCase() ? 0 : 1;
+      const bForm = b.form.toLowerCase() === targetWord.form.toLowerCase() ? 0 : 1;
+      if (aForm !== bForm) return aForm - bForm;
+
+      const aTopic = getWordTopic(a) === getWordTopic(targetWord) ? 0 : 1;
+      const bTopic = getWordTopic(b) === getWordTopic(targetWord) ? 0 : 1;
+      if (aTopic !== bTopic) return aTopic - bTopic;
+
+      const aTier = a.seed === targetWord.seed ? 0 : 1;
+      const bTier = b.seed === targetWord.seed ? 0 : 1;
+      if (aTier !== bTier) return aTier - bTier;
+
+      return ((hashSeed(a.word.toLowerCase()) ^ seed) % 1000) -
+        ((hashSeed(b.word.toLowerCase()) ^ seed) % 1000);
+    });
+
+  for (const w of sortByRelevanceAndSeed(dedupedPrimary)) {
+    if (picked.length >= 10) break;
+    tryAdd(w);
+  }
+
+  // If fewer than 10 discovered words exist, pad up to 10 from the active lexicon
+  if (picked.length < 10 && fallbackPool.length > 0) {
+    const remainingFallback = fallbackPool.filter(
+      (w) => !used.has(w.word.toLowerCase())
+    );
+    for (const w of sortByRelevanceAndSeed(remainingFallback)) {
+      if (picked.length >= 10) break;
+      tryAdd(w);
+    }
+  }
+
+  return picked.sort((a, b) => a.word.localeCompare(b.word));
+}
+
 export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
   roundWords,
   discoveredPool,
+  fallbackPool = [],
   isScoredMode = false,
+  isOverlayActive = false,
   onRecordOutcome,
   onCompleteRound,
   onSwitchToSeedSprout,
 }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [inputValue, setInputValue] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showAllInDropdown, setShowAllInDropdown] = useState(true);
-  const [highlightedIdx, setHighlightedIdx] = useState<number>(-1);
+  const [selectedWord, setSelectedWord] = useState('');
   const [triedWords, setTriedWords] = useState<Set<string>>(new Set());
 
-  // Usage & Context Hints
+  // Choice Narrowing (10 -> 5 words)
   const [narrowedWords, setNarrowedWords] = useState<string[] | null>(null);
-  const [secondExampleUnlocked, setSecondExampleUnlocked] = useState(false);
-  const [etymologyUnlocked, setEtymologyUnlocked] = useState(false);
-  const [definitionUnlocked, setDefinitionUnlocked] = useState(false);
   const [usedAssistedHint, setUsedAssistedHint] = useState(false);
 
   const [wrongAttempts, setWrongAttempts] = useState(0);
   const [isEntryComplete, setIsEntryComplete] = useState(false);
   const [entryOutcome, setEntryOutcome] = useState<RecallOutcome | null>(null);
+  const [acceptedMatch, setAcceptedMatch] = useState<{
+    chosenWord: string;
+    tier: FieldNoteFitTier;
+    scoreMultiplier: number;
+  } | null>(null);
   const [roundScore, setRoundScore] = useState(0);
   const [cleanStreak, setCleanStreak] = useState(0);
   const [wordElapsedSec, setWordElapsedSec] = useState(0);
@@ -108,13 +190,10 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
   } | null>(null);
   const [roundResults, setRoundResults] = useState<RoundEntryResult[]>([]);
 
-  const comboboxRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
+  const bankRef = useRef<HTMLDivElement | null>(null);
   const currentWord = roundWords[currentIdx];
 
-  // Combine discoveredPool + roundWords into a deduplicated, alphabetically sorted list of discovered words
-  const allDiscoveredOptions = useMemo(() => {
+  const primaryOptionPool = useMemo(() => {
     const map = new Map<string, GardenEntry | Word>();
     discoveredPool.forEach((entry) => {
       if (!(entry as GardenEntry).isComposted) {
@@ -127,23 +206,29 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
         map.set(key, w);
       }
     });
-    return Array.from(map.values()).sort((a, b) => a.word.localeCompare(b.word));
+    return Array.from(map.values());
   }, [discoveredPool, roundWords]);
 
+  const tenWordOptions = useMemo(() => {
+    if (!currentWord) return [];
+    return buildTenWordChoices(currentWord, primaryOptionPool, fallbackPool);
+  }, [currentWord, primaryOptionPool, fallbackPool]);
+
+  const visibleOptions = useMemo(() => {
+    if (!narrowedWords) return tenWordOptions;
+    const narrowedSet = new Set(narrowedWords.map((w) => w.toLowerCase()));
+    return tenWordOptions.filter((item) => narrowedSet.has(item.word.toLowerCase()));
+  }, [tenWordOptions, narrowedWords]);
+
   const resetEntryState = useCallback(() => {
-    setInputValue('');
-    setIsDropdownOpen(false);
-    setShowAllInDropdown(true);
-    setHighlightedIdx(-1);
+    setSelectedWord('');
     setTriedWords(new Set());
     setNarrowedWords(null);
-    setSecondExampleUnlocked(false);
-    setEtymologyUnlocked(false);
-    setDefinitionUnlocked(false);
     setUsedAssistedHint(false);
     setWrongAttempts(0);
     setIsEntryComplete(false);
     setEntryOutcome(null);
+    setAcceptedMatch(null);
     setWordElapsedSec(0);
     setWordPenaltyPts(0);
     setLastEarnedPts(null);
@@ -160,64 +245,247 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
   }, [roundWords, resetEntryState]);
 
   useEffect(() => {
-    if (!isScoredMode || isEntryComplete || !currentWord) return;
+    if (!isScoredMode || isEntryComplete || isOverlayActive || !currentWord) return;
     const startedAt = Date.now() - wordElapsedSec * 1000;
     const id = setInterval(() => {
       const elapsed = Math.min(DECAY_WINDOW_SECONDS, (Date.now() - startedAt) / 1000);
       setWordElapsedSec(elapsed);
     }, 200);
     return () => clearInterval(id);
-  }, [isScoredMode, isEntryComplete, currentWord, currentIdx]);
+  }, [isScoredMode, isEntryComplete, isOverlayActive, currentWord, currentIdx]);
 
   useEffect(() => {
     resetEntryState();
   }, [currentIdx, resetEntryState]);
 
-  // Close dropdown when clicking outside combobox
+  const cleanCount = roundResults.filter((r) => r.outcome === 'clean').length;
+  const assistedCount = roundResults.filter((r) => r.outcome === 'assisted').length;
+
+  const commitOutcome = (
+    outcome: RecallOutcome,
+    scoreMultiplier = 1,
+    chosenWord?: string,
+    tier: FieldNoteFitTier = 'exact'
+  ) => {
+    const baseResult = onRecordOutcome(currentWord, outcome);
+    let earned: number | undefined;
+    if (isScoredMode) {
+      const solved = outcome === 'clean' || outcome === 'assisted';
+      const rawEarned = computeWordPoints({
+        elapsedSeconds: wordElapsedSec,
+        penaltyPoints: wordPenaltyPts,
+        wordOrSeed: currentWord,
+        cleanStreak,
+        solved,
+      });
+      earned = solved ? Math.round(rawEarned * scoreMultiplier) : rawEarned;
+      setLastEarnedPts(earned);
+      setRoundScore((prev) => prev + (earned || 0));
+      setCleanStreak((prev) =>
+        outcome === 'clean' ? prev + 1 : outcome === 'composted' ? prev : 0
+      );
+    }
+    const result: RoundEntryResult =
+      earned !== undefined ? { ...baseResult, points: earned } : baseResult;
+
+    setRoundResults((prev) => {
+      const idx = prev.findIndex(
+        (r) => r.word.toLowerCase() === currentWord.word.toLowerCase()
+      );
+      if (idx >= 0) {
+        const clone = [...prev];
+        clone[idx] = result;
+        return clone;
+      }
+      return [...prev, result];
+    });
+    setEntryOutcome(outcome);
+    setAcceptedMatch(
+      chosenWord && (outcome === 'clean' || outcome === 'assisted')
+        ? { chosenWord, tier, scoreMultiplier }
+        : null
+    );
+    setIsEntryComplete(true);
+  };
+
+  const handleSelectWord = (wordStr: string) => {
+    if (isEntryComplete || triedWords.has(wordStr.toLowerCase())) return;
+    setSelectedWord(wordStr);
+    setFeedback(null);
+  };
+
+  const handleNarrowOptions = () => {
+    if (isEntryComplete || narrowedWords || tenWordOptions.length <= 5 || !currentWord) return;
+    setUsedAssistedHint(true);
+    setWordPenaltyPts((prev) => prev + NARROW_CHOICES_PENALTY);
+    const targetLower = currentWord.word.toLowerCase();
+
+    const untriedOthers = tenWordOptions.filter(
+      (w) => w.word.toLowerCase() !== targetLower && !triedWords.has(w.word.toLowerCase())
+    );
+    const orderedDistractors = untriedOthers
+      .sort((a, b) => {
+        const evA = evaluateFieldNoteChoice(currentWord, a.word).tier;
+        const evB = evaluateFieldNoteChoice(currentWord, b.word).tier;
+        const rank = (t: FieldNoteFitTier) => (t === 'strong' ? 0 : t === 'plausible' ? 1 : 2);
+        if (rank(evA) !== rank(evB)) return rank(evA) - rank(evB);
+        const aSameForm = a.form.toLowerCase() === currentWord.form.toLowerCase() ? 0 : 1;
+        const bSameForm = b.form.toLowerCase() === currentWord.form.toLowerCase() ? 0 : 1;
+        if (aSameForm !== bSameForm) return aSameForm - bSameForm;
+        return a.word.localeCompare(b.word);
+      })
+      .slice(0, 4)
+      .map((w) => w.word);
+
+    const subset = [currentWord.word, ...orderedDistractors].sort((a, b) =>
+      a.localeCompare(b)
+    );
+    const subsetLower = new Set(subset.map((w) => w.toLowerCase()));
+    if (selectedWord && !subsetLower.has(selectedWord.toLowerCase())) {
+      setSelectedWord('');
+    }
+    setNarrowedWords(subset);
+    setFeedback({
+      type: 'info',
+      text: `Narrowed choices down to ${subset.length} words.`,
+    });
+  };
+
+  const handleGiveUp = () => {
+    if (isEntryComplete || !currentWord) return;
+    setSelectedWord(currentWord.word);
+    commitOutcome('missed');
+    setFeedback({
+      type: 'info',
+      text: `The word was "${currentWord.word}". Queued for spaced-repetition review.`,
+    });
+  };
+
+  const handleCompostCurrent = () => {
+    if (!currentWord) return;
+    setSelectedWord(currentWord.word);
+    commitOutcome('composted');
+    setFeedback({
+      type: 'info',
+      text: `Moved "${currentWord.word}" to Compost — excluded from future rounds and flashcards.`,
+    });
+  };
+
+  const handleVerifyAnswer = (overrideCandidate?: string) => {
+    if (isEntryComplete || !currentWord) return;
+    const candidate = (overrideCandidate ?? selectedWord).trim();
+    if (!candidate) {
+      setFeedback({
+        type: 'error',
+        text: 'Select a word from the choices below before checking.',
+      });
+      return;
+    }
+
+    const candidateLower = candidate.toLowerCase();
+    const matchedOption = visibleOptions.find(
+      (opt) => opt.word.toLowerCase() === candidateLower
+    );
+    const displayCandidate = matchedOption ? matchedOption.word : candidate;
+    const evaluation = evaluateFieldNoteChoice(currentWord, candidateLower);
+
+    if (evaluation.tier === 'exact') {
+      const outcome: RecallOutcome =
+        wrongAttempts === 0 && !usedAssistedHint ? 'clean' : 'assisted';
+      commitOutcome(outcome, 1, currentWord.word, 'exact');
+      setFeedback({
+        type: 'success',
+        text:
+          outcome === 'clean'
+            ? `Spot on! "${currentWord.word}" fits this passage cleanly 🌿`
+            : `Correct! "${currentWord.word}" reinforced in your Garden 🌱`,
+      });
+    } else if (evaluation.tier === 'strong') {
+      commitOutcome('assisted', evaluation.scoreMultiplier, displayCandidate, 'strong');
+      setFeedback({
+        type: 'success',
+        text: `Strong contextual fit! "${displayCandidate}" works naturally here — the original passage used "${currentWord.word}".`,
+      });
+    } else if (evaluation.tier === 'plausible') {
+      commitOutcome('assisted', evaluation.scoreMultiplier, displayCandidate, 'plausible');
+      setFeedback({
+        type: 'info',
+        text: `Plausible alternative! "${displayCandidate}" works in this frame, though "${currentWord.word}" fits more precisely.`,
+      });
+    } else {
+      setWrongAttempts((prev) => prev + 1);
+      setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
+      setTriedWords((prev) => {
+        const next = new Set(prev);
+        next.add(candidateLower);
+        return next;
+      });
+      setSelectedWord('');
+      setAnimation('wrong');
+      setTimeout(() => setAnimation(null), 500);
+      setFeedback({
+        type: 'error',
+        text:
+          tenWordOptions.length > 5 && !narrowedWords
+            ? `"${candidate}" doesn't fit this passage — pick another word or narrow to 5 choices below.`
+            : `"${candidate}" doesn't fit this passage — try another word below.`,
+      });
+    }
+  };
+
+  const handleNextEntry = () => {
+    if (currentIdx + 1 < roundWords.length) {
+      setCurrentIdx((prev) => prev + 1);
+    } else {
+      onCompleteRound(roundResults);
+    }
+  };
+
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
-        setIsDropdownOpen(false);
+    if (isOverlayActive || !currentWord) return;
+    const onGlobalKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inInput =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT';
+      if (inInput) return;
+
+      if (isEntryComplete) {
+        if (e.key === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          handleNextEntry();
+        } else if (e.key === 's' || e.key === 'S') {
+          e.preventDefault();
+          speakWord(currentWord.word);
+        }
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleVerifyAnswer();
+        return;
+      }
+
+      if (e.altKey && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        handleNarrowOptions();
+        return;
+      }
+
+      // Keys 1-9 and 0 pick choices 1..10 directly
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && /^[0-9]$/.test(e.key)) {
+        const idx = e.key === '0' ? 9 : Number(e.key) - 1;
+        if (idx >= 0 && idx < visibleOptions.length) {
+          e.preventDefault();
+          handleSelectWord(visibleOptions[idx].word);
+        }
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Pool after optional "Narrow to 6 Words" hint
-  const activeOptionPool = useMemo(() => {
-    if (!narrowedWords) return allDiscoveredOptions;
-    const narrowedSet = new Set(narrowedWords.map((w) => w.toLowerCase()));
-    return allDiscoveredOptions.filter((item) => narrowedSet.has(item.word.toLowerCase()));
-  }, [allDiscoveredOptions, narrowedWords]);
-
-  // Filtered dropdown options based on typed search query
-  const filteredDropdownOptions = useMemo(() => {
-    const q = showAllInDropdown ? '' : inputValue.trim().toLowerCase();
-    if (!q) return activeOptionPool;
-
-    const startsWith: (GardenEntry | Word)[] = [];
-    const contains: (GardenEntry | Word)[] = [];
-
-    activeOptionPool.forEach((item) => {
-      const wordLower = item.word.toLowerCase();
-      const formLower = item.form.toLowerCase();
-      const diffLower = getDifficultyMeta(item).label.toLowerCase();
-      const topicLower = getTopicMeta(item).label.toLowerCase();
-      if (wordLower.startsWith(q)) {
-        startsWith.push(item);
-      } else if (
-        wordLower.includes(q) ||
-        formLower.includes(q) ||
-        diffLower.includes(q) ||
-        topicLower.includes(q)
-      ) {
-        contains.push(item);
-      }
-    });
-
-    return [...startsWith, ...contains];
-  }, [activeOptionPool, inputValue, showAllInDropdown]);
+    window.addEventListener('keydown', onGlobalKey);
+    return () => window.removeEventListener('keydown', onGlobalKey);
+  });
 
   if (!currentWord) {
     return (
@@ -245,220 +513,14 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
     );
   }
 
-  const cleanCount = roundResults.filter((r) => r.outcome === 'clean').length;
-  const assistedCount = roundResults.filter((r) => r.outcome === 'assisted').length;
-
-  const commitOutcome = (outcome: RecallOutcome) => {
-    const baseResult = onRecordOutcome(currentWord, outcome);
-    let earned: number | undefined;
-    if (isScoredMode) {
-      const solved = outcome === 'clean' || outcome === 'assisted';
-      earned = computeWordPoints({
-        elapsedSeconds: wordElapsedSec,
-        penaltyPoints: wordPenaltyPts,
-        wordOrSeed: currentWord,
-        cleanStreak,
-        solved,
-      });
-      setLastEarnedPts(earned);
-      setRoundScore((prev) => prev + (earned || 0));
-      setCleanStreak((prev) => (outcome === 'clean' ? prev + 1 : 0));
-    }
-    const result: RoundEntryResult =
-      earned !== undefined ? { ...baseResult, points: earned } : baseResult;
-
-    setRoundResults((prev) => {
-      const idx = prev.findIndex(
-        (r) => r.word.toLowerCase() === currentWord.word.toLowerCase()
-      );
-      if (idx >= 0) {
-        const clone = [...prev];
-        clone[idx] = result;
-        return clone;
-      }
-      return [...prev, result];
-    });
-    setEntryOutcome(outcome);
-    setIsEntryComplete(true);
-    setIsDropdownOpen(false);
-  };
-
-  const handleSelectWord = (wordStr: string) => {
-    if (isEntryComplete) return;
-    setInputValue(wordStr);
-    setShowAllInDropdown(true);
-    setIsDropdownOpen(false);
-    setHighlightedIdx(-1);
-    setFeedback(null);
-  };
-
-  const handleNarrowOptions = () => {
-    if (isEntryComplete || narrowedWords || allDiscoveredOptions.length <= 6) return;
-    setUsedAssistedHint(true);
-    setWordPenaltyPts((prev) => prev + NARROW_CHOICES_PENALTY);
-    const targetLower = currentWord.word.toLowerCase();
-    const distractors = allDiscoveredOptions
-      .filter((w) => w.word.toLowerCase() !== targetLower && !triedWords.has(w.word.toLowerCase()))
-      .sort((a, b) => {
-        const aSameForm = a.form.toLowerCase() === currentWord.form.toLowerCase() ? 0 : 1;
-        const bSameForm = b.form.toLowerCase() === currentWord.form.toLowerCase() ? 0 : 1;
-        if (aSameForm !== bSameForm) return aSameForm - bSameForm;
-        const aSameSeed = a.seed === currentWord.seed ? 0 : 1;
-        const bSameSeed = b.seed === currentWord.seed ? 0 : 1;
-        if (aSameSeed !== bSameSeed) return aSameSeed - bSameSeed;
-        return Math.random() - 0.5;
-      })
-      .slice(0, 5)
-      .map((w) => w.word);
-
-    const subset = [currentWord.word, ...distractors].sort((a, b) => a.localeCompare(b));
-    setNarrowedWords(subset);
-    setShowAllInDropdown(true);
-    setFeedback({
-      type: 'info',
-      text: `Narrowed your choices down to ${subset.length} discovered words.`,
-    });
-  };
-
-  const handleGiveUp = () => {
-    if (isEntryComplete) return;
-    setInputValue(currentWord.word);
-    commitOutcome('missed');
-    setFeedback({
-      type: 'info',
-      text: `The word was "${currentWord.word}". Queued for spaced-repetition review.`,
-    });
-  };
-
-  const handleCompostCurrent = () => {
-    setInputValue(currentWord.word);
-    commitOutcome('composted');
-    setFeedback({
-      type: 'info',
-      text: `Moved "${currentWord.word}" to Compost — excluded from future rounds and flashcards.`,
-    });
-  };
-
-  const handleVerifyAnswer = () => {
-    if (isEntryComplete) return;
-    const candidate = inputValue.trim();
-    if (!candidate) {
-      setFeedback({
-        type: 'error',
-        text: 'Choose or type one of your discovered words before checking.',
-      });
-      setIsDropdownOpen(true);
-      setShowAllInDropdown(true);
-      return;
-    }
-
-    const candidateLower = candidate.toLowerCase();
-    const targetLower = currentWord.word.toLowerCase();
-
-    if (candidateLower === targetLower) {
-      const outcome: RecallOutcome =
-        wrongAttempts === 0 && !usedAssistedHint ? 'clean' : 'assisted';
-      commitOutcome(outcome);
-      setFeedback({
-        type: 'success',
-        text:
-          outcome === 'clean'
-            ? `Spot on! "${currentWord.word}" fits this passage cleanly 🌿`
-            : `Correct! "${currentWord.word}" reinforced in your Garden 🌱`,
-      });
-    } else {
-      setWrongAttempts((prev) => prev + 1);
-      setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
-      setTriedWords((prev) => {
-        const next = new Set(prev);
-        next.add(candidateLower);
-        return next;
-      });
-      setAnimation('wrong');
-      setTimeout(() => setAnimation(null), 500);
-      setFeedback({
-        type: 'error',
-        text: `"${candidate}" doesn't fit this passage — try another discovered word or use a context hint below.`,
-      });
-    }
-  };
-
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (isEntryComplete) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (!isDropdownOpen) {
-        setIsDropdownOpen(true);
-        setHighlightedIdx(0);
-      } else if (filteredDropdownOptions.length > 0) {
-        setHighlightedIdx((prev) => (prev + 1) % filteredDropdownOptions.length);
-      }
-      return;
-    }
-
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (isDropdownOpen && filteredDropdownOptions.length > 0) {
-        setHighlightedIdx((prev) =>
-          prev <= 0 ? filteredDropdownOptions.length - 1 : prev - 1
-        );
-      }
-      return;
-    }
-
-    if (e.key === 'Escape') {
-      setIsDropdownOpen(false);
-      setHighlightedIdx(-1);
-      return;
-    }
-
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (
-        isDropdownOpen &&
-        highlightedIdx >= 0 &&
-        highlightedIdx < filteredDropdownOptions.length
-      ) {
-        const picked = filteredDropdownOptions[highlightedIdx];
-        if (picked.word.toLowerCase() !== inputValue.trim().toLowerCase()) {
-          handleSelectWord(picked.word);
-          return;
-        }
-      }
-      handleVerifyAnswer();
-    }
-  };
-
-  const handleNextEntry = () => {
-    if (currentIdx + 1 < roundWords.length) {
-      setCurrentIdx((prev) => prev + 1);
-    } else {
-      onCompleteRound(roundResults);
-    }
-  };
-
   const passage = getFieldNotePassage(currentWord);
   const { before, matchedForm, after } = splitSentenceAroundTarget(
     passage.quote,
     currentWord.word
   );
-  const hasDistinctSecondExample =
-    Boolean(currentWord.example) &&
-    currentWord.example.trim().toLowerCase() !== passage.quote.trim().toLowerCase();
-  const secondExampleSplit = hasDistinctSecondExample
-    ? splitSentenceAroundTarget(currentWord.example, currentWord.word)
-    : null;
-
-  // Quick-select word bank pills: show when narrowed or when pool has <= 14 words
-  const quickPickWords = useMemo(() => {
-    if (narrowedWords) return activeOptionPool;
-    if (allDiscoveredOptions.length <= 14) return allDiscoveredOptions;
-    return [];
-  }, [narrowedWords, activeOptionPool, allDiscoveredOptions]);
 
   return (
-    <div className="w-full journal-card rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 relative overflow-visible">
+    <div className="w-full journal-card rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 relative overflow-hidden">
       {/* Top Progress Bar */}
       <div
         className="absolute top-0 left-0 h-1 bg-emerald-600 transition-all duration-500 rounded-tl-2xl"
@@ -473,12 +535,9 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
             {roundWords.length}
           </span>
           <span className="text-[10px] font-bold text-emerald-800 bg-[#EDF5EB] border border-[#C6DEC2] px-2.5 py-1 rounded-full">
-            🌸 Using {allDiscoveredOptions.length}{' '}
-            {isScoredMode
-              ? 'Words (Full Lexicon)'
-              : allDiscoveredOptions.length === 1
-              ? 'Discovered Word'
-              : 'Discovered Words'}
+            {narrowedWords
+              ? `Narrowed to ${visibleOptions.length} Words`
+              : `Choose from ${visibleOptions.length} Words`}
           </span>
         </div>
 
@@ -553,23 +612,15 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
         );
       })()}
 
-      {/* Metadata Pills (Part of Speech & Category of the Missing Word) */}
+      {/* Metadata Pills (Part of Speech & Category of the Blank) */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">
-            Missing Word Clue:
+            Blank Expects:
           </span>
           <span className="bg-emerald-800 text-white text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
             {currentWord.form}
           </span>
-          <span className="bg-[#EDF5EB] text-emerald-900 border border-[#C6DEC2] text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full tracking-wider">
-            {currentWord.word.length} letters
-          </span>
-          {etymologyUnlocked && (
-            <span className="specimen-stamp text-[10px] sm:text-xs text-emerald-900 bg-[#EDF5EB] border-[#96BE90] px-2.5 py-0.5 flex items-center gap-1">
-              {ORIGIN_EMOJI_MAP[currentWord.origin] || '🍄'} {currentWord.origin}
-            </span>
-          )}
         </div>
 
         {(() => {
@@ -600,7 +651,7 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
           </p>
           {!isEntryComplete && (
             <span className="text-[10px] font-bold text-emerald-700">
-              Click the blank or use the menu below
+              Select the best word below
             </span>
           )}
         </div>
@@ -614,19 +665,14 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
           ) : (
             <button
               type="button"
-              onClick={() => {
-                setIsDropdownOpen((prev) => !prev);
-                setShowAllInDropdown(true);
-                inputRef.current?.focus();
-              }}
+              onClick={() => bankRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
               className={`inline-flex items-center gap-1.5 mx-1 px-3 py-0.5 rounded-lg border-2 not-italic font-bold transition-all text-sm sm:text-base ${
-                inputValue.trim()
+                selectedWord.trim()
                   ? 'bg-amber-50 border-emerald-700 text-emerald-950 shadow-sm'
                   : 'bg-[#FFFDF8] border-dashed border-emerald-600 text-emerald-800 hover:bg-emerald-50'
               } ${animation === 'wrong' ? 'animate-shake border-red-500 bg-red-50' : ''}`}
             >
-              <span>{inputValue.trim() || `choose ${currentWord.word.length}-letter word...`}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+              <span>{selectedWord.trim() || `pick ${currentWord.form}...`}</span>
             </button>
           )}
           {after}&rdquo;
@@ -639,328 +685,109 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
         )}
       </div>
 
-      {/* Optional Second Example Sentence Hint */}
-      {!isEntryComplete && secondExampleUnlocked && secondExampleSplit && (
-        <div className="p-4 rounded-2xl bg-[#F4F7F0] border border-[#DCE5D5] mb-5 animate-fade-in">
-          <span className="block text-[10px] font-black uppercase tracking-wider text-emerald-800 mb-1">
-            Additional Example Sentence
-          </span>
-          <p className="serif text-xs sm:text-sm text-emerald-950 italic leading-relaxed">
-            &ldquo;{secondExampleSplit.before}
-            <span className="inline-block mx-1 px-2 py-0.5 rounded bg-white border border-emerald-400 font-bold not-italic text-emerald-900">
-              {inputValue.trim() || '______'}
-            </span>
-            {secondExampleSplit.after}&rdquo;
-          </p>
-        </div>
-      )}
-
-      {/* Searchable Type-In + Dropdown Menu of Discovered Words */}
+      {/* Curated 10-Word -> 5-Word Choice Grid */}
       {!isEntryComplete && (
-        <div className="mb-6" ref={comboboxRef}>
-          <label className="block text-[10px] font-black uppercase tracking-widest text-emerald-800 mb-2">
-            Choose or Type a Discovered Word ({activeOptionPool.length} in menu)
-          </label>
-
-          <div className="relative">
-            <div
-              className={`flex items-center rounded-2xl border-2 bg-[#FAF7EE] focus-within:bg-[#FFFDF8] focus-within:border-emerald-700 transition-all shadow-sm ${
-                animation === 'wrong' ? 'border-red-500 animate-shake' : 'border-[#C8D8C2]'
-              }`}
-            >
-              <Search className="w-4 h-4 text-emerald-700 ml-4 shrink-0" />
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputValue}
-                onFocus={() => {
-                  setIsDropdownOpen(true);
-                }}
-                onChange={(e) => {
-                  setInputValue(e.target.value);
-                  setShowAllInDropdown(false);
-                  setIsDropdownOpen(true);
-                  setHighlightedIdx(0);
-                  setFeedback(null);
-                }}
-                onKeyDown={handleInputKeyDown}
-                placeholder={`Type to filter or pick from ${activeOptionPool.length} discovered words...`}
-                className="w-full px-3 py-3.5 bg-transparent outline-none serif font-bold text-base sm:text-lg text-emerald-950 placeholder:font-sans placeholder:font-medium placeholder:text-xs sm:placeholder:text-sm placeholder:text-emerald-700/70"
-                aria-label="Choose or type your discovered word"
-                aria-expanded={isDropdownOpen}
-              />
-
-              {inputValue && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInputValue('');
-                    setShowAllInDropdown(true);
-                    setIsDropdownOpen(true);
-                    setHighlightedIdx(-1);
-                    inputRef.current?.focus();
-                  }}
-                  className="p-2 text-emerald-700 hover:text-emerald-950 transition-colors"
-                  title="Clear selection"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAllInDropdown(true);
-                  setIsDropdownOpen((prev) => !prev);
-                }}
-                className="px-4 py-3.5 border-l border-[#DCE5D5] text-emerald-800 hover:bg-emerald-100/60 rounded-r-2xl flex items-center gap-1.5 text-xs font-black uppercase tracking-wider transition-colors"
-                aria-label="Toggle discovered words dropdown"
-              >
-                <span className="hidden sm:inline">Word List</span>
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform ${
-                    isDropdownOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Dropdown Menu List */}
-            {isDropdownOpen && (
-              <div className="absolute left-0 right-0 z-30 mt-2 bg-[#FFFDF8] border-2 border-emerald-800/30 rounded-2xl shadow-xl max-h-64 overflow-y-auto divide-y divide-[#EBF0E6]">
-                {filteredDropdownOptions.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-emerald-800 font-medium">
-                    No discovered words match &ldquo;{inputValue}&rdquo;.
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setInputValue('');
-                        setShowAllInDropdown(true);
-                      }}
-                      className="ml-2 underline font-bold text-emerald-900"
-                    >
-                      Show all ({activeOptionPool.length})
-                    </button>
-                  </div>
-                ) : (
-                  filteredDropdownOptions.map((item, idx) => {
-                    const isTried = triedWords.has(item.word.toLowerCase());
-                    const isSelected =
-                      inputValue.trim().toLowerCase() === item.word.toLowerCase();
-                    const isHighlighted = idx === highlightedIdx;
-                    const diffMeta = getDifficultyMeta(item);
-                    const topicMeta = getTopicMeta(item);
-                    const stageKey: GrowthStage =
-                      (item as GardenEntry).growthStage || 'sprout';
-                    const stageMeta = GROWTH_STAGE_META[stageKey];
-
-                    return (
-                      <button
-                        key={item.word}
-                        type="button"
-                        disabled={isTried}
-                        onClick={() => handleSelectWord(item.word)}
-                        onMouseEnter={() => setHighlightedIdx(idx)}
-                        className={`w-full px-4 py-2.5 text-left flex items-center justify-between gap-2 transition-colors ${
-                          isTried
-                            ? 'bg-stone-100 text-stone-400 cursor-not-allowed line-through'
-                            : isSelected
-                            ? 'bg-emerald-800 text-white'
-                            : isHighlighted
-                            ? 'bg-[#EDF5EB] text-emerald-950'
-                            : 'hover:bg-[#F4F7F0] text-emerald-950'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-sm">{stageMeta.emoji}</span>
-                          <span className="serif font-bold text-base truncate">
-                            {item.word}
-                          </span>
-                          <span
-                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                              isSelected
-                                ? 'bg-emerald-950 text-emerald-100'
-                                : 'bg-[#E6EFE2] text-emerald-800'
-                            }`}
-                          >
-                            {item.form}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {isTried ? (
-                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-700 no-underline">
-                              ✕ Tried
-                            </span>
-                          ) : (
-                            <>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                  isSelected
-                                    ? 'bg-emerald-700 text-white border-emerald-600'
-                                    : diffMeta.badgeClass
-                                }`}
-                              >
-                                {diffMeta.emoji} {diffMeta.label}
-                              </span>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border hidden sm:inline-flex ${
-                                  isSelected
-                                    ? 'bg-emerald-700 text-white border-emerald-600'
-                                    : topicMeta.badgeClass
-                                }`}
-                              >
-                                {topicMeta.emoji} {topicMeta.label}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            )}
+        <div className="mb-5" ref={bankRef}>
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800">
+              {narrowedWords
+                ? `Narrowed Word Choices (${visibleOptions.length})`
+                : `Available Words (${visibleOptions.length})`}
+            </span>
+            <span className="text-[10px] font-semibold text-emerald-700/80">
+              Click to select (double-click to check)
+            </span>
           </div>
 
-          {/* Quick-Pick Word Chips (shown when pool <= 14 or narrowed to 6) */}
-          {quickPickWords.length > 0 && (
-            <div className="mt-3">
-              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700 mb-1.5">
-                {narrowedWords
-                  ? `Narrowed Discovered Words (${quickPickWords.length}):`
-                  : `Quick-Pick Discovered Words (${quickPickWords.length}):`}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {quickPickWords.map((item) => {
-                  const isTried = triedWords.has(item.word.toLowerCase());
-                  const isSelected =
-                    inputValue.trim().toLowerCase() === item.word.toLowerCase();
-                  return (
-                    <button
-                      key={item.word}
-                      type="button"
-                      disabled={isTried}
-                      onClick={() => handleSelectWord(item.word)}
-                      className={`px-3 py-1.5 rounded-xl serif font-bold text-xs sm:text-sm border transition-all ${
-                        isTried
-                          ? 'bg-stone-100 text-stone-400 border-stone-200 line-through cursor-not-allowed'
-                          : isSelected
-                          ? 'bg-emerald-800 text-white border-emerald-950 shadow-sm scale-[1.02]'
-                          : 'bg-[#FFFDF8] hover:bg-[#EDF5EB] text-emerald-950 border-[#DCE5D5] hover:border-emerald-600'
-                      }`}
-                    >
-                      {item.word}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <div
+            className={`grid grid-cols-2 ${
+              visibleOptions.length <= 5 ? 'sm:grid-cols-5' : 'sm:grid-cols-5'
+            } gap-2`}
+          >
+            {visibleOptions.map((item, idx) => {
+              const isTried = triedWords.has(item.word.toLowerCase());
+              const isSelected =
+                selectedWord.trim().toLowerCase() === item.word.toLowerCase();
+              const keyLabel = idx === 9 ? '0' : String(idx + 1);
+
+              return (
+                <button
+                  key={item.word}
+                  type="button"
+                  disabled={isTried}
+                  onClick={() => handleSelectWord(item.word)}
+                  onDoubleClick={() => {
+                    if (!isTried) {
+                      setSelectedWord(item.word);
+                      handleVerifyAnswer(item.word);
+                    }
+                  }}
+                  className={`group px-3 py-2.5 rounded-xl border-2 text-left transition-all flex items-center justify-between gap-1.5 ${
+                    isTried
+                      ? 'bg-stone-100 text-stone-400 border-stone-200 line-through cursor-not-allowed'
+                      : isSelected
+                      ? 'bg-emerald-800 text-white border-emerald-950 shadow-md scale-[1.02]'
+                      : 'bg-[#FFFDF8] hover:bg-[#EDF5EB] text-emerald-950 border-[#D2DFCC] hover:border-emerald-600 shadow-sm'
+                  }`}
+                >
+                  <span className="serif font-bold text-sm sm:text-base truncate">
+                    {item.word}
+                  </span>
+                  <span
+                    className={`hidden sm:inline-flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-black shrink-0 ${
+                      isTried
+                        ? 'bg-stone-200 text-stone-400'
+                        : isSelected
+                        ? 'bg-emerald-950/60 text-emerald-100'
+                        : 'bg-[#F0F5EC] text-emerald-700 border border-[#DCE5D5]'
+                    }`}
+                  >
+                    {keyLabel}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {/* Context & Usage Hint Toolbar */}
+      {/* Streamlined Actions & Narrow to 5 Words Toolbar */}
       {!isEntryComplete && (
-        <div className="space-y-3 mb-6">
-          {/* Unlocked Hint Callouts */}
-          {(etymologyUnlocked || definitionUnlocked) && (
-            <div className="grid grid-cols-1 gap-2.5 animate-fade-in">
-              {definitionUnlocked && (
-                <div className="p-3.5 rounded-2xl bg-[#EDF5EB] border border-[#C6DEC2] text-xs sm:text-sm text-emerald-950">
-                  <span className="block text-[10px] font-black uppercase tracking-wider text-emerald-800 mb-1">
-                    Definition Clue
-                  </span>
-                  <p className="serif font-bold">{currentWord.definition}</p>
-                </div>
-              )}
-              {etymologyUnlocked && (
-                <div className="p-3.5 rounded-2xl bg-[#FCF7EA] border border-[#E8D8B5] text-xs sm:text-sm text-amber-950">
-                  <span className="block text-[10px] font-black uppercase tracking-wider text-amber-800 mb-1">
-                    Origin &amp; Etymology Hint ({currentWord.origin})
-                  </span>
-                  <p className="serif italic">{getSafeEtymologyHint(currentWord)}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Hint Action Buttons */}
-          <div className="p-3 rounded-2xl bg-[#F4F7F0] border border-[#DCE5D5] flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {allDiscoveredOptions.length > 6 && !narrowedWords && (
-                <button
-                  type="button"
-                  onClick={handleNarrowOptions}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFFDF8] hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
-                >
-                  <Filter className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Narrow to 6 Words</span>
-                </button>
-              )}
-
-              {hasDistinctSecondExample && !secondExampleUnlocked && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSecondExampleUnlocked(true);
-                    setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFFDF8] hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>2nd Example Sentence</span>
-                </button>
-              )}
-
-              {!etymologyUnlocked && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEtymologyUnlocked(true);
-                    setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FCF7EA] hover:bg-amber-100/70 text-amber-900 border border-[#E8D8B5] text-xs font-bold transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Origin &amp; Root Hint</span>
-                </button>
-              )}
-
-              {!definitionUnlocked && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDefinitionUnlocked(true);
-                    setUsedAssistedHint(true);
-                    setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFFDF8] hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
-                >
-                  <Eye className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Show Definition</span>
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5">
+        <div className="mb-6 p-3 rounded-2xl bg-[#F4F7F0] border border-[#DCE5D5] flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {tenWordOptions.length > 5 && !narrowedWords && (
               <button
                 type="button"
-                onClick={handleGiveUp}
-                className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition-colors"
+                onClick={handleNarrowOptions}
+                title="Shortcut: Alt+N"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFFDF8] hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
               >
-                Reveal Answer
+                <Filter className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Narrow to 5 Words</span>
               </button>
-              <button
-                type="button"
-                onClick={handleCompostCurrent}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-xs font-bold transition-colors"
-                title="Already know this word well? Move it to Compost to skip future rounds."
-              >
-                <Archive className="w-3.5 h-3.5" />
-                <span>Compost 🍂</span>
-              </button>
-            </div>
+            )}
+            <span className="text-[11px] font-semibold text-emerald-800/85">
+              Original match · Strong synonyms · Plausible alternatives accepted
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleGiveUp}
+              className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition-colors"
+            >
+              Reveal Answer
+            </button>
+            <button
+              type="button"
+              onClick={handleCompostCurrent}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300 text-xs font-bold transition-colors"
+              title="Already know this word well? Move it to Compost to skip future rounds."
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span>Compost 🍂</span>
+            </button>
           </div>
         </div>
       )}
@@ -968,14 +795,38 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
       {/* Post-Verification Full Dossier Reveal */}
       {isEntryComplete && (
         <div className="journal-subcard p-5 rounded-2xl mb-6 space-y-3 animate-fade-in">
+          {acceptedMatch && acceptedMatch.tier !== 'exact' && (
+            <div
+              className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold flex flex-wrap items-center justify-between gap-2 ${
+                acceptedMatch.tier === 'strong'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                Your accepted choice:{' '}
+                <strong className="serif text-sm">{acceptedMatch.chosenWord}</strong>
+                <SpeakWordButton word={acceptedMatch.chosenWord} size="xs" />
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-white/80 border border-current/20 text-[10px] font-black uppercase tracking-wider">
+                {acceptedMatch.tier === 'strong' ? 'Strong Fit' : 'Plausible Fit'}
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-0.5">
-                Matched Word
+                {acceptedMatch && acceptedMatch.tier !== 'exact'
+                  ? 'Original Passage Word'
+                  : 'Matched Word'}
               </p>
-              <h3 className="serif text-2xl sm:text-3xl font-black text-emerald-950">
-                {currentWord.word}
-              </h3>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h3 className="serif text-2xl sm:text-3xl font-black text-emerald-950">
+                  {currentWord.word}
+                </h3>
+                <SpeakWordButton word={currentWord.word} size="sm" showLabel />
+              </div>
             </div>
             <span className="text-xs font-black text-emerald-800 bg-[#EDF5EB] border border-[#C6DEC2] px-3 py-1 rounded-full">
               {ORIGIN_EMOJI_MAP[currentWord.origin] || '🍄'} {currentWord.origin}
@@ -1045,7 +896,7 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
         {!isEntryComplete ? (
           <button
             type="button"
-            onClick={handleVerifyAnswer}
+            onClick={() => handleVerifyAnswer()}
             className="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white py-3.5 sm:py-4 rounded-2xl font-bold shadow-lg active:scale-[0.99] transition-all text-sm sm:text-base"
           >
             Check Word
@@ -1059,10 +910,19 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
             <span>
               {currentIdx + 1 < roundWords.length ? 'Next Passage' : 'View Results'}
             </span>
+            <span className="hidden sm:inline text-[10px] font-black uppercase bg-emerald-950/50 border border-white/20 px-1.5 py-0.5 rounded">
+              Enter ↵
+            </span>
             <ArrowRight className="w-4 h-4" />
           </button>
         )}
       </div>
+      <p className="hidden sm:block text-[10px] text-center text-emerald-700/80 font-semibold mt-2.5">
+        Shortcuts: <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">1–0</kbd> Pick word ·{' '}
+        <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Alt+N</kbd> Narrow to 5 ·{' '}
+        <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Enter</kbd> Check / Next ·{' '}
+        <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">S</kbd> Pronounce (after check)
+      </p>
     </div>
   );
 };

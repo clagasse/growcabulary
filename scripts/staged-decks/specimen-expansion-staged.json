@@ -8,6 +8,42 @@
   },
   "words": [
     {
+      "id": "staged-1794976121368-0",
+      "word": "trepidation",
+      "seed": "garden",
+      "topic": "emotions",
+      "form": "noun",
+      "definition": "a nervous or fearful feeling of uncertain agitation and dread",
+      "definition2": "an involuntary physical trembling or quivering caused by terror",
+      "etymology": "Drawn from the Latin noun 'trepidatio', which springs from the verb 'trepidare', meaning to hurry about in confusion or to tremble with agitation. In ancient Roman medical and military contexts, the root described physical quaking and chaotic rushing during moments of sudden catastrophe. Early English translators initially used the word to denote literal cosmic or seismic vibrations, particularly theoretical shaking in celestial spheres. Eventually, the term narrowed into our modern interior sense of anxious hesitation and anticipatory dread before facing a daunting ordeal.",
+      "example": "Elena stepped onto the narrow suspension bridge with visible trepidation, gripping the icy cables as the yawning gorge churned below.",
+      "origin": "Latin"
+    },
+    {
+      "id": "staged-1794976121368-1",
+      "word": "indignation",
+      "seed": "garden",
+      "topic": "emotions",
+      "form": "noun",
+      "definition": "anger aroused by something unjust, mean, or unworthy",
+      "definition2": "a dignified reaction of offended pride in response to unfair treatment",
+      "etymology": "Originates from the Latin noun 'indignatio', formed from the prefix 'in-' meaning not, and 'dignus', meaning worthy or fitting. In Roman civic life, it represented the honorable fury of a citizen witnessing actions that violated the community's moral order. Unlike blind rage, this emotion carried an inherently ethical posture, demanding social justice rather than chaotic vengeance. The term passed through Old French into Middle English, retaining its specific sense of righteous, principled resentment toward misconduct.",
+      "example": "The town council's clandestine vote sparked righteous indignation among residents, who flooded the municipal hall demanding an immediate audit.",
+      "origin": "Latin"
+    },
+    {
+      "id": "staged-1794976121368-2",
+      "word": "consternation",
+      "seed": "garden",
+      "topic": "emotions",
+      "form": "noun",
+      "definition": "a sudden, paralyzing dismay that throws one into confusion",
+      "definition2": "a state of alarmed bewilderment resulting from an unforeseen crisis",
+      "etymology": "Derived from the Latin noun 'consternatio', which stems from the verb 'consternare', meaning to prostrate, throw down, or terrify. In the ancient Mediterranean, the verb described battle horses violently thrown into panic or soldiers flattened to the earth by catastrophic shock. The Latin physical sense of being knocked prone gradually transformed into a psychological collapse where the mind is struck senseless. By the seventeenth century, English writers deployed the word for the speechless astonishment that grips onlookers during an unforeseen calamity.",
+      "example": "The unexpected resignation of the chief surgeon caused immense consternation among the hospital staff on the eve of the inspection.",
+      "origin": "Latin"
+    },
+    {
       "id": "staged-1794893082782-0",
       "word": "rapprochement",
       "seed": "garden",
@@ -80,18 +116,6 @@
       "origin": "Latin"
     },
     {
-      "id": "staged-1794881202642-3",
-      "word": "perturbation",
-      "seed": "garden",
-      "topic": "emotions",
-      "form": "noun",
-      "definition": "A state of acute mental disquiet, agitation, or anxious confusion",
-      "definition2": "A secondary influence that alters the regular course or equilibrium of a system",
-      "etymology": "Derived from the Latin verb 'perturbare', composed of the intensive prefix 'per-' and 'turbare', meaning to confuse or throw into disorder. In Roman military and civil accounts, the verb depicted panicked crowds or formations thrown into chaotic turbulence by unexpected alarms. The word soon passed into psychological lexicons to capture the frantic inner disarray experienced during a shocking crisis.",
-      "example": "The diplomat could not conceal his perturbation when intercepted cables revealed that covert border deployments had already begun behind his back.",
-      "origin": "Latin"
-    },
-    {
       "id": "staged-1794760313047-1",
       "word": "imbrocato",
       "seed": "garden",
@@ -123,17 +147,6 @@
       "etymology": "Rooted in the Latin noun 'frons' (stem 'frond-'), which referred specifically to a leafy bough, garland, or mass of tree foliage. Classical Romans celebrated the yearly arrival of fresh canopy shade, weaving ceremonial wreaths from newly harvested frondes to honor rustic deities. By the nineteenth century, Romantic nature essayists adopted the Latinate derivative to poeticize that breathless moment when bare winter woods vanish under emerald canopies.",
       "example": "May arrived with a sudden, breathless frondescence, cloaking the stark gray limbs of the ancient beech forest in soft, luminous emerald.",
       "origin": "Latin 'frons' (leafy bough, foliage)"
-    },
-    {
-      "id": "staged-1794760313047-4",
-      "word": "espalier",
-      "seed": "garden",
-      "form": "noun",
-      "definition": "A fruit tree or shrub trained to grow flat against a wall, fence, or trellis.",
-      "definition2": "A framework of lattice or wire designed to support and shape trained vegetation.",
-      "etymology": "Borrowed through French from the Italian noun 'spalliera', derived from 'spalla' meaning 'shoulder'. In Renaissance Italian kitchen gardens, estate keepers leaned woven lath against stone masonry to support heavy, fruitful branches upon their protective 'shoulders'. The physical technique allowed gardeners in chillier northern climates to maximize radiated warmth, evolving from a pragmatic pruning craft into an elegant formal motif.",
-      "example": "Trained across the warm limestone terrace, the pear espalier yielded heavy, sun-warmed fruit within convenient reach of the estate chef's shears.",
-      "origin": "Italian 'spalliera' via 'spalla' (shoulder, support)"
     },
     {
       "id": "staged-1794760313047-5",

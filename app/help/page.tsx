@@ -11,6 +11,7 @@ import {
   Layers,
   Award,
   Sparkles,
+  Trophy,
 } from 'lucide-react';
 import { GROWTH_STAGE_META, WORD_BANKS } from '../../constants';
 import { HelpFeedbackSupportActions } from '../../components/HelpFeedbackSupportActions';
@@ -184,7 +185,59 @@ export default function HelpPage() {
           </p>
         </section>
 
-        {/* 3. Spaced Repetition & Review */}
+        {/* 3. Timed & Scored Mode */}
+        <section id="scored-mode" className="space-y-3 scroll-mt-6">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-700" />
+            <h2 className="serif text-xl sm:text-2xl font-bold text-emerald-950">
+              Timed &amp; Scored Mode
+            </h2>
+          </div>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/55 p-4 sm:p-5 space-y-3">
+            <p className="text-xs sm:text-sm text-emerald-950 leading-relaxed">
+              Toggle between <strong>🌿 Zen Mode</strong> (untimed learning) and{' '}
+              <strong>🏆 Scored Mode</strong> on the main menu to test your recall speed in{' '}
+              <strong>Seed Sprout</strong> and <strong>Field Notes</strong>. In Scored Field Notes,
+              rounds draw from the <strong>entire lexicon</strong> rather than only discovered words
+              to keep the challenge sharp.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl bg-[#FFFDF8] border border-amber-200/80 p-3 space-y-1">
+                <p className="text-xs font-black text-amber-950">⏱️ 30s Decay Meter</p>
+                <p className="text-xs text-emerald-800 leading-relaxed">
+                  Each word starts at <strong>100 base pts</strong> and drains smoothly to{' '}
+                  <strong>0</strong> over <strong>30 seconds</strong>. Missed words score 0 pts.
+                </p>
+              </div>
+              <div className="rounded-xl bg-[#FFFDF8] border border-amber-200/80 p-3 space-y-1">
+                <p className="text-xs font-black text-amber-950">⚡ Hint Deductions</p>
+                <p className="text-xs text-emerald-800 leading-relaxed">
+                  Using hints deducts from your remaining base points:{' '}
+                  <strong>-10 pts</strong> per Reveal Letter, <strong>-30 pts</strong> for Letter
+                  Tiles, and <strong>-75 pts</strong> to narrow Field Notes down to 5 words.
+                </p>
+              </div>
+              <div className="rounded-xl bg-[#FFFDF8] border border-amber-200/80 p-3 space-y-1">
+                <p className="text-xs font-black text-amber-950">🔥 Tier &amp; Streak Bonuses</p>
+                <p className="text-xs text-emerald-800 leading-relaxed">
+                  Points multiply by tier (<strong>1×</strong> Pasture, <strong>1.5×</strong>{' '}
+                  Meadow, <strong>2×</strong> Conservatory) and clean streaks (+0.25× per unassisted
+                  word, up to <strong>2×</strong>).
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-emerald-800 leading-relaxed">
+              Your best scores and round history across modes and tiers are saved locally and
+              synced to your cloud account on the{' '}
+              <Link href="/ranks" className="font-bold underline text-emerald-950">
+                Ranks &amp; High Scores
+              </Link>{' '}
+              page.
+            </p>
+          </div>
+        </section>
+
+        {/* 4. Spaced Repetition & Review */}
         <section className="space-y-3">
           <div className="flex items-center gap-2">
             <Droplets className="w-5 h-5 text-sky-700" />

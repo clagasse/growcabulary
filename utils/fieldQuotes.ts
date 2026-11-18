@@ -1986,8 +1986,8 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
     author: 'C. Pama, Heraldry of South African Families: Coats of Arms/ Crests/ Ancestry (1972)',
   },
   volatile: {
-    quote: 'Operations on C++ volatiles do put the compiler on notice that the object may be modified asynchronously, and hence are generally safer to use than ordinary variable accesses.',
-    author: 'Victor Pankratius; Ali-Reza Adl-Tabatabai; Walter Tichy, Fundamentals of Multicore Software Development (2011)',
+    quote: 'The volatile truth of our words should continually betray the inadequacy of the residual statement.',
+    author: 'Henry David Thoreau, Walden (1854)',
   },
   whimsical: {
     quote: 'Even the putatively innocuous whimsical shapes and designs of cakes and pastry, notably in Central Europe, retain to this day the phallic concept[.]',
@@ -1998,7 +1998,7 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
     author: 'Elizabeth Hamilton, Cottagers of Glenburnie (1808)',
   },
   zany: {
-    quote: 'Press articles emphasized his &#91;Dizzy Gillespie\'s&#93; ambassadorial role and drew attention to the paradox that he was a shrewd musician and leader despite his zany image.',
+    quote: "Press articles emphasized his [Dizzy Gillespie's] ambassadorial role and drew attention to the paradox that he was a shrewd musician and leader despite his zany image.",
     author: 'Alyn Shipton, Groovin\' High: The Life of Dizzy Gillespie (1999)',
   },
   zealous: {
@@ -2008,6 +2008,82 @@ export const CURATED_FIELD_QUOTES: Record<string, FieldQuoteEntry> = {
   zest: {
     quote: 'He rolled his own cigarettes from a sack of Bull Durham, spilling flakes into his beer, which no doubt gained in zest thereby.',
     author: 'Peter De Vries, The Tents of Wickedness (1959)',
+  },
+  aloof: {
+    quote: 'The charm of variety there was not, nor the excitement of incident; but I liked peace so well, and sought stimulus so little, that when the latter came I almost felt it a disturbance, and rather still wished it had held aloof.',
+    author: 'Charlotte Brontë, Villette (1853)',
+  },
+  axiom: {
+    quote: 'It is an axiom in my mind, that our liberty can never be safe but in the hands of the people themselves, and that too of the people with a certain degree of instruction.',
+    author: 'Thomas Jefferson, Letter to George Washington (1786)',
+  },
+  boycott: {
+    quote: 'A boycott suggests an economic squeeze, leaving one bogged down in a negative. But we were concerned with the positive. Our concern would not be to put the bus company out of business, but to put justice in business.',
+    author: 'Martin Luther King Jr., Stride Toward Freedom (1958)',
+  },
+  brazen: {
+    quote: "The brazen plate upon the door (which being Mr. Pecksniff's, could not lie) bore this inscription, 'PECKSNIFF, ARCHITECT,' to which Mr. Pecksniff, on his cards of business, added, 'AND LAND SURVEYOR.'",
+    author: 'Charles Dickens, Martin Chuzzlewit (1844)',
+  },
+  dogma: {
+    quote: 'Dogma demands authority, rather than intelligent thought, as the source of opinion; it requires persecution of heretics and hostility to unbelievers; it asks of its disciples that they should inhibit natural kindliness in favor of systematic hatred.',
+    author: 'Bertrand Russell, Unpopular Essays (1950)',
+  },
+  dubious: {
+    quote: 'A blush is no language: only a dubious flag-signal which may mean either of two contradictories.',
+    author: 'George Eliot, Daniel Deronda (1876)',
+  },
+  empirical: {
+    quote: 'Such knowledge is entitled empirical, and distinguished from the a priori, which have their sources entirely a priori, in the understanding, independently of experience.',
+    author: 'Immanuel Kant, Critique of Pure Reason (1781)',
+  },
+  erosion: {
+    quote: 'Each recession of plant types bred erosion; each increment to erosion bred a further recession of plants. The result today is a progressive and mutual deterioration, not only of plants and soils, but of the animal community subsisting thereon.',
+    author: 'Aldo Leopold, A Sand County Almanac (1949)',
+  },
+  fickle: {
+    quote: 'As usual, the fickle, unreasoning world took Muff Potter to its bosom and fondled him as lavishly as it had abused him before.',
+    author: 'Mark Twain, The Adventures of Tom Sawyer (1876)',
+  },
+  jargon: {
+    quote: 'To be infected with the jargon of a particular profession, and to know only the language of a single rank of mortals, is indeed sufficiently despicable.',
+    author: 'Samuel Johnson, The Rambler No. 99 (1751)',
+  },
+  mundane: {
+    quote: 'What can be better than to get out a book on Saturday afternoon and thrust all mundane considerations away till next week.',
+    author: 'C. S. Lewis, Letter to Arthur Greeves (1920)',
+  },
+  nuance: {
+    quote: 'Ideas in modern Russia are machine-cut blocks coming in solid colors; the nuance is outlawed, the interval walled up, the curve grossly stepped.',
+    author: 'Vladimir Nabokov, Pale Fire (1962)',
+  },
+  satire: {
+    quote: "Satire is a sort of glass, wherein beholders do generally discover everybody's face but their own; which is the chief reason for that kind reception it meets with in the world, and that so very few are offended with it.",
+    author: 'Jonathan Swift, The Battle of the Books (1704)',
+  },
+  symbiosis: {
+    quote: 'The mycorrhizal symbiosis enables the fungi to forage for mineral nutrients in the soil and deliver them to the tree in exchange for carbohydrates. The mycorrhizae may form fungal bridges between individual trees, so that all trees in a forest are connected.',
+    author: 'Robin Wall Kimmerer, Braiding Sweetgrass (2013)',
+  },
+  veneer: {
+    quote: "Lily considered with interest the expression of their faces: the girl's turned toward her companion's like an empty plate held up to be filled, while the man lounging at her side already betrayed the encroaching boredom which would presently crack the thin veneer of his smile.",
+    author: 'Edith Wharton, The House of Mirth (1905)',
+  },
+  veto: {
+    quote: 'For in the exercise of his power of veto, which is of course, beyond all comparison, his most formidable prerogative, the President acts not as the executive but as a third branch of the legislature.',
+    author: 'Woodrow Wilson, Congressional Government (1885)',
+  },
+  efflorescence: {
+    quote: 'The Venice of modern fiction and drama is a thing of yesterday, a mere efflorescence of decay, a stage dream which the first ray of daylight must dissipate into dust.',
+    author: 'John Ruskin, The Stones of Venice (1853)',
+  },
+  profound: {
+    quote: 'In analyzing history do not be too profound, for often the causes are quite superficial.',
+    author: 'Ralph Waldo Emerson, Journals',
+  },
+  scrupulous: {
+    quote: "The enemies to property at first pretended a most tender, delicate, and scrupulous anxiety for keeping the king's engagements with the public creditor.",
+    author: 'Edmund Burke, Reflections on the Revolution in France (1790)',
   },
 };
 

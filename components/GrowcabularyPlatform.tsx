@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Word,
+  SeedType,
   DifficultyTier,
   TopicCategory,
   GardenEntry,
@@ -65,6 +66,7 @@ import {
 } from '../utils/scoring';
 import { OnboardingTutorialModal } from './OnboardingTutorialModal';
 import { FeedbackModal, SUPPORT_URL } from './FeedbackModal';
+import { SpeakWordButton, speakWord } from './SpeakWordButton';
 import { createClient, isSupabaseConfigured, canAccessCurator } from '../utils/supabase/client';
 import {
   Droplets,
@@ -78,6 +80,7 @@ import {
   HelpCircle,
   MessageSquare,
   Coffee,
+  Star,
 } from 'lucide-react';
 
 function getLocalDateKey(date: Date = new Date()): string {
@@ -91,8 +94,11 @@ const RAW_WORDS_BY_KEY = new Map<string, Word>(
   RAW_WORDS.map((w) => [w.word.toLowerCase(), w])
 );
 
-function normalizeGardenEntry(entry: GardenEntry): GardenEntry | null {
-  const match = RAW_WORDS_BY_KEY.get(entry.word.toLowerCase());
+function normalizeGardenEntry(
+  entry: GardenEntry,
+  lexiconMap: Map<string, Word> = RAW_WORDS_BY_KEY
+): GardenEntry | null {
+  const match = lexiconMap.get(entry.word.toLowerCase());
   if (!match) return null;
   return {
     ...entry,
@@ -112,6 +118,7 @@ export const GrowcabularyPlatform: React.FC = () => {
   };
 
   const [hydrated, setHydrated] = useState(false);
+  const [lexiconWords, setLexiconWords] = useState<Word[]>(RAW_WORDS);
   const [cloudUser, setCloudUser] = useState<{ id: string; email?: string; name?: string } | null>(null);
   const [selectedMode, setSelectedMode] = useState<GameMode>('seed-sprout');
   const [selectedSeed, setSelectedSeed] = useState<DifficultyTier | 'all' | null>(null);
@@ -236,9 +243,11 @@ export const GrowcabularyPlatform: React.FC = () => {
   const serializeEntryForCloud = useCallback(
     (entry: GardenEntry, userId: string) => {
       const baseModes = entry.modesMastered || [];
-      const syncModes = entry.isComposted
-        ? Array.from(new Set([...baseModes, 'compost']))
-        : baseModes.filter((m) => (m as string) !== 'compost');
+      let syncModes: string[] = baseModes.filter(
+        (m) => (m as string) !== 'compost' && (m as string) !== 'favorite'
+      );
+      if (entry.isComposted) syncModes.push('compost');
+      if (entry.isFavorite) syncModes.push('favorite');
 
       return {
         user_id: userId,
@@ -257,6 +266,135 @@ export const GrowcabularyPlatform: React.FC = () => {
     },
     []
   );
+
+  // Hydrate approved words + Field Notes alternatives & In Your Own Words scenarios from Supabase
+  useEffect(() => {
+    if (!hydrated || !isSupabaseConfigured()) return;
+    let cancelled = false;
+    const supabase = createClient();
+
+    const loadCloudLexicon = async () => {
+      type CloudWordRow = {
+        term: string;
+        part_of_speech: string;
+        definition: string;
+        definition2?: string | null;
+        etymology: string;
+        origin?: string | null;
+        example_sentence: string;
+        field_quote?: string | null;
+        field_quote_author?: string | null;
+        topic?: string | null;
+        field_alternatives?: Word['fieldAlternatives'] | null;
+        decks?: { slug?: string } | Array<{ slug?: string }> | null;
+      };
+
+      const extendedSelect =
+        'term, part_of_speech, definition, definition2, etymology, origin, example_sentence, field_quote, field_quote_author, topic, field_alternatives, decks!inner(slug)';
+      const midSelect =
+        'term, part_of_speech, definition, definition2, etymology, origin, example_sentence, topic, field_alternatives, decks!inner(slug)';
+      const baseSelect =
+        'term, part_of_speech, definition, definition2, etymology, origin, example_sentence, decks!inner(slug)';
+
+      const extRes = await supabase
+        .from('words')
+        .select(extendedSelect)
+        .eq('status', 'approved');
+
+      let cloudWordRows = extRes.data as CloudWordRow[] | null;
+      let queryError = extRes.error;
+
+      if (queryError && /field_quote/i.test(queryError.message)) {
+        const midRes = await supabase
+          .from('words')
+          .select(midSelect)
+          .eq('status', 'approved');
+        cloudWordRows = midRes.data as CloudWordRow[] | null;
+        queryError = midRes.error;
+      }
+
+      if (
+        queryError &&
+        /column|schema cache|topic|field_alternatives/i.test(queryError.message)
+      ) {
+        const baseRes = await supabase
+          .from('words')
+          .select(baseSelect)
+          .eq('status', 'approved');
+        cloudWordRows = baseRes.data as CloudWordRow[] | null;
+        queryError = baseRes.error;
+      }
+
+      if (cancelled || queryError || !Array.isArray(cloudWordRows) || cloudWordRows.length === 0) {
+        return;
+      }
+
+      const merged = new Map<string, Word>(
+        RAW_WORDS.map((w) => [w.word.toLowerCase(), { ...w }])
+      );
+
+      for (const row of cloudWordRows) {
+        if (!row.term) continue;
+        const key = row.term.trim().toLowerCase();
+        const existing = merged.get(key);
+        const deckRel = Array.isArray(row.decks) ? row.decks[0] : row.decks;
+        const deckSlug = (deckRel?.slug || existing?.seed || 'meadow') as SeedType;
+        const validTopic =
+          row.topic &&
+          ['general', 'emotions', 'philosophy', 'biology', 'architecture', 'statecraft', 'literature'].includes(
+            row.topic
+          )
+            ? (row.topic as TopicCategory)
+            : existing?.topic;
+
+        const nextWord: Word = {
+          ...(existing || {}),
+          word: row.term.trim(),
+          seed: getWordDifficulty({ seed: deckSlug }),
+          topic: validTopic || getWordTopic({ seed: deckSlug }),
+          form: row.part_of_speech || existing?.form || 'noun',
+          definition: row.definition || existing?.definition || '',
+          ...(row.definition2 ? { definition2: row.definition2 } : existing?.definition2 ? { definition2: existing.definition2 } : {}),
+          etymology: row.etymology || existing?.etymology || '',
+          origin: row.origin || existing?.origin || 'Latin',
+          example: row.example_sentence || existing?.example || '',
+          ...(row.field_quote ? { fieldQuote: row.field_quote } : existing?.fieldQuote ? { fieldQuote: existing.fieldQuote } : {}),
+          ...(row.field_quote_author
+            ? { fieldQuoteAuthor: row.field_quote_author }
+            : existing?.fieldQuoteAuthor
+            ? { fieldQuoteAuthor: existing.fieldQuoteAuthor }
+            : {}),
+          ...(row.field_alternatives
+            ? { fieldAlternatives: row.field_alternatives }
+            : {}),
+        };
+        merged.set(key, nextWord);
+      }
+
+      const nextList = Array.from(merged.values());
+      setLexiconWords(nextList);
+
+      // Refresh metadata onto any already-hydrated garden entries
+      setGardenList((prev) =>
+        prev.map((entry) => {
+          const match = merged.get(entry.word.toLowerCase());
+          return match
+            ? {
+                ...entry,
+                ...match,
+                seed: getWordDifficulty(match),
+                topic: getWordTopic(match),
+              }
+            : entry;
+        })
+      );
+    };
+
+    loadCloudLexicon();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated]);
 
   // Connect to Supabase Auth & bidirectionally merge cloud user_word_progress if configured
   useEffect(() => {
@@ -310,7 +448,7 @@ export const GrowcabularyPlatform: React.FC = () => {
 
       for (const row of cloudRows || []) {
         const termKey = (row.word_term || '').toLowerCase();
-        const lexiconMatch = RAW_WORDS.find((w) => w.word.toLowerCase() === termKey);
+        const lexiconMatch = lexiconWords.find((w) => w.word.toLowerCase() === termKey);
         if (!lexiconMatch) continue;
 
         const cloudUpdatedAt = new Date(
@@ -324,6 +462,7 @@ export const GrowcabularyPlatform: React.FC = () => {
           : [];
         const isCompostedFromCloud =
           Boolean(row.is_composted) || rawModes.includes('compost');
+        const isFavoriteFromCloud = rawModes.includes('favorite');
         const cleanModes = rawModes.filter(
           (m): m is GameMode =>
             m === 'seed-sprout' ||
@@ -332,9 +471,10 @@ export const GrowcabularyPlatform: React.FC = () => {
             m === 'watering'
         );
 
-        const localUpdatedAt = new Date(
-          existing?.compostedAt || existing?.lastWateredDate || 0
-        ).getTime();
+        const localUpdatedAt = Math.max(
+          new Date(existing?.compostedAt || existing?.lastWateredDate || 0).getTime(),
+          new Date(existing?.favoritedAt || 0).getTime()
+        );
 
         if (!existing || cloudUpdatedAt >= localUpdatedAt) {
           mergedMap.set(termKey, {
@@ -349,6 +489,8 @@ export const GrowcabularyPlatform: React.FC = () => {
             growthStage: row.growth_stage || 'sprout',
             modesMastered: cleanModes,
             userSentence: existing?.userSentence,
+            isFavorite: isFavoriteFromCloud,
+            favoritedAt: isFavoriteFromCloud ? existing?.favoritedAt || row.updated_at : undefined,
             isComposted: isCompostedFromCloud,
           });
         }
@@ -356,9 +498,10 @@ export const GrowcabularyPlatform: React.FC = () => {
 
       const entriesToUpload: GardenEntry[] = [];
       for (const [termKey, entry] of mergedMap.entries()) {
-        const localUpdatedAt = new Date(
-          entry.compostedAt || entry.lastWateredDate || 0
-        ).getTime();
+        const localUpdatedAt = Math.max(
+          new Date(entry.compostedAt || entry.lastWateredDate || 0).getTime(),
+          new Date(entry.favoritedAt || 0).getTime()
+        );
         const cloudTime = cloudTimeByTerm.get(termKey);
         if (cloudTime === undefined || localUpdatedAt > cloudTime) {
           entriesToUpload.push(entry);
@@ -460,8 +603,8 @@ export const GrowcabularyPlatform: React.FC = () => {
     const compostedSet = new Set(
       gardenList.filter((g) => g.isComposted).map((g) => g.word.toLowerCase())
     );
-    return RAW_WORDS.filter((w) => !compostedSet.has(w.word.toLowerCase()));
-  }, [gardenList]);
+    return lexiconWords.filter((w) => !compostedSet.has(w.word.toLowerCase()));
+  }, [gardenList, lexiconWords]);
 
   const masteredTotal = useMemo(
     () => activeGardenList.filter((g) => isWordMastered(g)).length,
@@ -516,7 +659,7 @@ export const GrowcabularyPlatform: React.FC = () => {
       conservatory: makeEmptyStat(),
     };
 
-    RAW_WORDS.forEach((w) => {
+    lexiconWords.forEach((w) => {
       if (seedSproutTopicFilter !== 'all' && getWordTopic(w) !== seedSproutTopicFilter) {
         return;
       }
@@ -582,7 +725,7 @@ export const GrowcabularyPlatform: React.FC = () => {
       }
     };
 
-    RAW_WORDS.forEach((w) => {
+    lexiconWords.forEach((w) => {
       const topic = getWordTopic(w);
       addTo(stats.all, w);
       addTo(stats[topic], w);
@@ -597,7 +740,7 @@ export const GrowcabularyPlatform: React.FC = () => {
     });
 
     return stats;
-  }, [gardenList]);
+  }, [gardenList, lexiconWords]);
 
   const maskWordInExample = (example: string, word: string) => {
     if (!example || !word) return '';
@@ -630,9 +773,25 @@ export const GrowcabularyPlatform: React.FC = () => {
     }
   }, [focusedIndex, isRoundOver, currentWord, selectedMode, showWelcome]);
 
-  // Scored Mode 20-second decay timer for Seed Sprout
+  // Scored Mode 30-second decay timer for Seed Sprout (pauses when any modal/overlay is open)
+  const isAnyOverlayOpen =
+    showGarden ||
+    showMenu ||
+    showTutorial ||
+    showFeedback ||
+    showRoundResult ||
+    Boolean(selectedGardenWord) ||
+    confirmModal.show;
+
   useEffect(() => {
-    if (!isScoredMode || selectedMode !== 'seed-sprout' || isRoundOver || showWelcome || !currentWord) {
+    if (
+      !isScoredMode ||
+      selectedMode !== 'seed-sprout' ||
+      isRoundOver ||
+      showWelcome ||
+      isAnyOverlayOpen ||
+      !currentWord
+    ) {
       return;
     }
     const startedAt = Date.now() - wordElapsedSec * 1000;
@@ -641,7 +800,15 @@ export const GrowcabularyPlatform: React.FC = () => {
       setWordElapsedSec(elapsed);
     }, 200);
     return () => clearInterval(id);
-  }, [isScoredMode, selectedMode, isRoundOver, showWelcome, currentWord, currentWordIndex]);
+  }, [
+    isScoredMode,
+    selectedMode,
+    isRoundOver,
+    showWelcome,
+    isAnyOverlayOpen,
+    currentWord,
+    currentWordIndex,
+  ]);
 
   const recordWordOutcome = useCallback(
     (
@@ -722,6 +889,46 @@ export const GrowcabularyPlatform: React.FC = () => {
       recordWordOutcome(wordObj, 'composted', selectedMode);
     },
     [recordWordOutcome, selectedMode]
+  );
+
+  const toggleFavoriteWord = useCallback(
+    (wordObj: Word) => {
+      const targetKey = wordObj.word.toLowerCase();
+      const existing = gardenList.find((g) => g.word.toLowerCase() === targetKey);
+      let nextEntry: GardenEntry;
+      if (existing) {
+        const nextFav = !existing.isFavorite;
+        nextEntry = {
+          ...existing,
+          isFavorite: nextFav,
+          favoritedAt: nextFav ? new Date().toISOString() : undefined,
+        };
+      } else {
+        const created = createGardenEntry(wordObj, 'clean', selectedMode);
+        nextEntry = {
+          ...created,
+          isFavorite: true,
+          favoritedAt: new Date().toISOString(),
+        };
+      }
+
+      setGardenList((prev) => {
+        const idx = prev.findIndex((g) => g.word.toLowerCase() === targetKey);
+        if (idx >= 0) {
+          const clone = [...prev];
+          clone[idx] = nextEntry;
+          return clone;
+        }
+        return [...prev, nextEntry];
+      });
+
+      setSelectedGardenWord((prev) =>
+        prev && prev.word.toLowerCase() === targetKey ? nextEntry : prev
+      );
+
+      pushEntryToSupabase(nextEntry);
+    },
+    [gardenList, pushEntryToSupabase, selectedMode]
   );
 
   const restoreFromCompost = useCallback(
@@ -875,7 +1082,7 @@ export const GrowcabularyPlatform: React.FC = () => {
     const compostedSet = new Set(
       gardenList.filter((g) => g.isComposted).map((g) => g.word.toLowerCase())
     );
-    const allInFilter = RAW_WORDS.filter((w) => {
+    const allInFilter = lexiconWords.filter((w) => {
       if (difficulty !== 'all' && getWordDifficulty(w) !== difficulty) return false;
       if (effectiveTopic !== 'all' && getWordTopic(w) !== effectiveTopic) return false;
       return true;
@@ -950,6 +1157,31 @@ export const GrowcabularyPlatform: React.FC = () => {
     initSeedBank(selectedSeed || 'garden', modeId, activeTopicFilter);
   };
 
+  const launchIntroSeedSproutRound = () => {
+    const introWords = ['enigma', 'volatile', 'nuance']
+      .map((term) => lexiconWords.find((w) => w.word.toLowerCase() === term))
+      .filter((w): w is Word => Boolean(w));
+    if (introWords.length === 0) {
+      initSeedBank('garden', 'seed-sprout', 'all');
+      return;
+    }
+
+    setRoundScore(0);
+    setRoundCleanStreak(0);
+    setIsNewBestRound(false);
+    setShowRoundResult(false);
+    setSelectedMode('seed-sprout');
+    setSelectedSeed('garden');
+    setSeedSproutTopicFilter('all');
+    setActiveTopicFilter('all');
+    setDeckNotice(null);
+    setRemainingWords(introWords);
+    setCurrentWordIndex(0);
+    setRoundResults([]);
+    resetWordState(introWords[0]);
+    setShowWelcome(false);
+  };
+
   const dismissTutorial = () => {
     setShowTutorial(false);
     try {
@@ -959,9 +1191,22 @@ export const GrowcabularyPlatform: React.FC = () => {
     }
   };
 
-  const handleStartFromTutorial = () => {
+  const handleTutorialSkipOrExit = () => {
+    const isNewUser = gardenList.length === 0;
     dismissTutorial();
-    initSeedBank('garden', 'seed-sprout', 'all');
+    if (isNewUser) {
+      launchIntroSeedSproutRound();
+    }
+  };
+
+  const handleStartFromTutorial = () => {
+    const isNewUser = gardenList.length === 0;
+    dismissTutorial();
+    if (isNewUser) {
+      launchIntroSeedSproutRound();
+    } else {
+      initSeedBank('garden', 'seed-sprout', 'all');
+    }
   };
 
   const openConservatoryGrid = () => {
@@ -989,7 +1234,9 @@ export const GrowcabularyPlatform: React.FC = () => {
       });
       setLastWordPts(earned);
       setRoundScore((prev) => prev + (earned || 0));
-      setRoundCleanStreak((prev) => (outcome === 'clean' ? prev + 1 : 0));
+      setRoundCleanStreak((prev) =>
+        outcome === 'clean' ? prev + 1 : outcome === 'composted' ? prev : 0
+      );
     }
     const result: RoundEntryResult =
       earned !== undefined ? { ...baseResult, points: earned } : baseResult;
@@ -1178,11 +1425,129 @@ export const GrowcabularyPlatform: React.FC = () => {
         newGuess[index] = '';
         setGuess(newGuess);
       }
+      return;
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prev = findPrevUnrevealedIndex(revealedIndices, index);
+      if (prev !== null) setFocusedIndex(prev);
+      return;
+    }
+    if (e.key === 'ArrowRight' && currentWord) {
+      e.preventDefault();
+      const next = findNextUnrevealedIndex(currentWord.word.length, revealedIndices, index);
+      if (next !== null) setFocusedIndex(next);
+      return;
+    }
+    if (e.altKey && (e.key === 'l' || e.key === 'L')) {
+      e.preventDefault();
+      handleSeedSproutRevealIndices([], 'letter');
+      return;
+    }
+    if (e.altKey && (e.key === 'e' || e.key === 'E') && !hintUnlocked) {
+      e.preventDefault();
+      setHintUnlocked(true);
+      setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
+      return;
+    }
+    if (e.altKey && (e.key === 't' || e.key === 'T')) {
+      e.preventDefault();
+      setLetterBankActive((prev) => !prev);
+      setUsedAssistedHint(true);
+      if (!letterTilesPenalized) {
+        setLetterTilesPenalized(true);
+        setWordPenaltyPts((prev) => prev + LETTER_TILES_PENALTY);
+      }
+      return;
     }
     if (e.key === 'Enter') {
-      checkAnswer();
+      e.preventDefault();
+      if (isRoundOver) {
+        nextWord();
+      } else {
+        checkAnswer();
+      }
     }
   };
+
+  // Global keyboard shortcuts for Seed Sprout completion & Word Dossier Modal
+  useEffect(() => {
+    const onGlobalKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inInput =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT';
+
+      if (selectedGardenWord) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setSelectedGardenWord(null);
+          return;
+        }
+        if (!inInput) {
+          if (e.key === 's' || e.key === 'S') {
+            e.preventDefault();
+            speakWord(selectedGardenWord.word);
+          } else if (e.key === 'f' || e.key === 'F') {
+            e.preventDefault();
+            toggleFavoriteWord(selectedGardenWord);
+          }
+        }
+        return;
+      }
+
+      if (
+        !showWelcome &&
+        !isAnyOverlayOpen &&
+        selectedMode === 'seed-sprout' &&
+        currentWord
+      ) {
+        if (e.altKey && !isRoundOver) {
+          if (e.key === 'l' || e.key === 'L') {
+            e.preventDefault();
+            handleSeedSproutRevealIndices([], 'letter');
+            return;
+          }
+          if ((e.key === 'e' || e.key === 'E') && !hintUnlocked) {
+            e.preventDefault();
+            setHintUnlocked(true);
+            setWordPenaltyPts((prev) => prev + LETTER_HINT_PENALTY);
+            return;
+          }
+          if (e.key === 't' || e.key === 'T') {
+            e.preventDefault();
+            setLetterBankActive((prev) => !prev);
+            setUsedAssistedHint(true);
+            if (!letterTilesPenalized) {
+              setLetterTilesPenalized(true);
+              setWordPenaltyPts((prev) => prev + LETTER_TILES_PENALTY);
+            }
+            return;
+          }
+        }
+
+        if (!inInput) {
+          if (isRoundOver && (e.key === 'Enter' || e.code === 'Space')) {
+            e.preventDefault();
+            nextWord();
+          } else if (isRoundOver && (e.key === 's' || e.key === 'S')) {
+            e.preventDefault();
+            speakWord(currentWord.word);
+          } else if (isRoundOver && (e.key === 'f' || e.key === 'F')) {
+            e.preventDefault();
+            toggleFavoriteWord(currentWord);
+          } else if (!isRoundOver && e.key === 'Enter') {
+            e.preventDefault();
+            checkAnswer();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onGlobalKey);
+    return () => window.removeEventListener('keydown', onGlobalKey);
+  });
 
   const requestResetCategory = () => {
     if (!selectedSeed) return;
@@ -1196,11 +1561,13 @@ export const GrowcabularyPlatform: React.FC = () => {
       message: `Shuffle all unseen and active words in "${diffLabel}${topicLabel}" from the start? Your learned words in the Garden remain safe.`,
       action: () => {
         const deckWords = new Set(
-          RAW_WORDS.filter(
-            (w) =>
-              (selectedSeed === 'all' || getWordDifficulty(w) === selectedSeed) &&
-              (activeTopicFilter === 'all' || getWordTopic(w) === activeTopicFilter)
-          ).map((w) => w.word)
+          lexiconWords
+            .filter(
+              (w) =>
+                (selectedSeed === 'all' || getWordDifficulty(w) === selectedSeed) &&
+                (activeTopicFilter === 'all' || getWordTopic(w) === activeTopicFilter)
+            )
+            .map((w) => w.word)
         );
         setPlayedWords((prev) => prev.filter((pw) => !deckWords.has(pw)));
         setShowMenu(false);
@@ -1349,12 +1716,18 @@ export const GrowcabularyPlatform: React.FC = () => {
             <div className="mb-5 p-3 sm:p-3.5 rounded-2xl bg-[#FAF7EE] border border-[#DCE5D5] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div>
                 <p className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-                  <span>{isScoredMode ? '🏆 Scored Challenge Active' : '🌿 Zen Mode (Untimed)'}</span>
+                  <span>{isScoredMode ? '🏆 Scored Mode (Timed)' : '🌿 Zen Mode (Untimed)'}</span>
                 </p>
                 <p className="text-[11px] text-emerald-800">
                   {isScoredMode
-                    ? '100 pts/word decaying over 30s · 1.5× Meadow / 2× Conservatory · clean streak bonus · -10 hint / -30 tiles'
-                    : 'Play at your own pace, or switch on Scored Mode to chase high scores in Seed Sprout & Field Notes.'}
+                    ? 'Race a 30s meter per word with difficulty and streak multipliers to set high scores.'
+                    : 'Play untimed at your own pace, or switch to Scored Mode to test your speed and recall.'}{' '}
+                  <Link
+                    href="/help#scored-mode"
+                    className="font-bold underline text-emerald-950 hover:text-emerald-700"
+                  >
+                    How scoring works →
+                  </Link>
                 </p>
               </div>
               <div className="inline-flex items-center bg-[#EDF5EB] p-1 rounded-full border border-[#C6DEC2] shrink-0 self-start sm:self-center">
@@ -1649,7 +2022,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                         <span>🪶 In Your Own Words</span>
                       </h4>
                       <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-900">
-                        Write Sentences
+                        {isScoredMode ? 'Untimed Mode' : 'Write Sentences'}
                       </span>
                     </div>
                     <p className="text-xs text-emerald-800 leading-relaxed">
@@ -1863,6 +2236,7 @@ export const GrowcabularyPlatform: React.FC = () => {
               <InYourOwnWordsPlaceholder
                 roundWords={remainingWords}
                 discoveredPool={activeGardenList}
+                isOverlayActive={isAnyOverlayOpen}
                 onRecordOutcome={(wordObj, outcome, userSentence) =>
                   recordWordOutcome(wordObj, outcome, 'own-words', userSentence)
                 }
@@ -1875,7 +2249,9 @@ export const GrowcabularyPlatform: React.FC = () => {
               <BotanistFieldNotesGame
                 roundWords={remainingWords}
                 discoveredPool={isScoredMode ? activeLexiconWords : activeGardenList}
+                fallbackPool={activeLexiconWords}
                 isScoredMode={isScoredMode}
+                isOverlayActive={isAnyOverlayOpen}
                 onRecordOutcome={(wordObj, outcome) =>
                   recordWordOutcome(wordObj, outcome, 'field-notes')
                 }
@@ -2057,7 +2433,61 @@ export const GrowcabularyPlatform: React.FC = () => {
                     </div>
 
                     {isRoundOver && (
-                      <div className="mt-4 pt-4 border-t border-[#D8E2D2] flex flex-col sm:flex-row sm:items-end justify-between gap-3 animate-fade-in">
+                      <div className="mt-4 pt-4 border-t border-[#D8E2D2] space-y-3 animate-fade-in">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="serif text-lg sm:text-xl font-black text-emerald-950">
+                              {currentWord.word}
+                            </span>
+                            <SpeakWordButton
+                              word={currentWord.word}
+                              size="sm"
+                              showLabel
+                            />
+                            {wordOutcome !== 'composted' && (() => {
+                              const currentGardenEntry = gardenList.find(
+                                (g) =>
+                                  g.word.toLowerCase() ===
+                                  currentWord.word.toLowerCase()
+                              );
+                              const isFav = Boolean(currentGardenEntry?.isFavorite);
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleFavoriteWord(currentWord)}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                                    isFav
+                                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                      : 'bg-[#FAF7EE] hover:bg-amber-50 text-emerald-900 border-[#DCE5D5]'
+                                  }`}
+                                  title="Shortcut: F"
+                                >
+                                  <Star
+                                    className={`w-3.5 h-3.5 ${
+                                      isFav
+                                        ? 'fill-amber-500 text-amber-600'
+                                        : 'text-amber-600'
+                                    }`}
+                                  />
+                                  <span>{isFav ? 'Favorited' : 'Favorite'}</span>
+                                </button>
+                              );
+                            })()}
+                          </div>
+
+                          {wordOutcome !== 'composted' && (
+                            <button
+                              type="button"
+                              onClick={handleCompostCurrentWord}
+                              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FAF7EE] hover:bg-stone-100 text-stone-700 border border-[#DCE5D5] text-[11px] font-bold transition-colors"
+                              title="Already know this word well? Move it to Compost to skip future reviews."
+                            >
+                              <Archive className="w-3 h-3" />
+                              <span>Move to Compost 🍂</span>
+                            </button>
+                          )}
+                        </div>
+
                         <div>
                           <p className="text-[10px] sm:text-xs font-black text-emerald-700 uppercase tracking-widest">
                             Etymology
@@ -2066,17 +2496,6 @@ export const GrowcabularyPlatform: React.FC = () => {
                             {currentWord.etymology}
                           </p>
                         </div>
-                        {wordOutcome !== 'composted' && (
-                          <button
-                            type="button"
-                            onClick={handleCompostCurrentWord}
-                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FAF7EE] hover:bg-stone-100 text-stone-700 border border-[#DCE5D5] text-[11px] font-bold transition-colors"
-                            title="Already know this word well? Move it to Compost to skip future reviews."
-                          >
-                            <Archive className="w-3 h-3" />
-                            <span>Move to Compost 🍂</span>
-                          </button>
-                        )}
                       </div>
                     )}
                   </div>
@@ -2172,14 +2591,26 @@ export const GrowcabularyPlatform: React.FC = () => {
                       <button
                         type="button"
                         onClick={nextWord}
-                        className="flex-1 bg-emerald-800 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold hover:bg-emerald-900 shadow-lg active:scale-95 transition-all text-sm sm:text-base"
+                        className="flex-1 bg-emerald-800 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold hover:bg-emerald-900 shadow-lg active:scale-95 transition-all text-sm sm:text-base flex items-center justify-center gap-2"
                       >
-                        {currentWordIndex + 1 >= remainingWords.length
-                          ? 'View Results'
-                          : 'Next Word'}
+                        <span>
+                          {currentWordIndex + 1 >= remainingWords.length
+                            ? 'View Results'
+                            : 'Next Word'}
+                        </span>
+                        <span className="hidden sm:inline text-[10px] font-black uppercase bg-emerald-950/50 border border-white/20 px-1.5 py-0.5 rounded">
+                          Enter ↵
+                        </span>
                       </button>
                     )}
                   </div>
+                  <p className="hidden sm:block text-[10px] text-center text-emerald-700/80 font-semibold">
+                    Shortcuts: <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Enter</kbd> Check / Next ·{' '}
+                    <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">←/→</kbd> Move tiles ·{' '}
+                    <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Alt+E</kbd> Etymology ·{' '}
+                    <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Alt+T</kbd> Tiles ·{' '}
+                    <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Alt+L</kbd> Reveal 1 letter
+                  </p>
                 </div>
               </div>
             ) : (
@@ -2195,8 +2626,15 @@ export const GrowcabularyPlatform: React.FC = () => {
       {showGarden && (
         <SecretGardenConservatory
           gardenList={gardenList}
-          allLexiconWords={RAW_WORDS}
+          allLexiconWords={lexiconWords}
           initialFieldMode={conservatoryInitialMode}
+          isModalOverlayOpen={
+            Boolean(selectedGardenWord) ||
+            showMenu ||
+            showTutorial ||
+            showFeedback ||
+            confirmModal.show
+          }
           onClose={() => setShowGarden(false)}
           onSelectWordDossier={(word) => setSelectedGardenWord(word)}
           onUpdateGardenEntry={(updated, countsTowardGoal) => {
@@ -2210,6 +2648,7 @@ export const GrowcabularyPlatform: React.FC = () => {
               )
             );
           }}
+          onToggleFavorite={(wordObj) => toggleFavoriteWord(wordObj)}
           onCompostWord={(wordObj) => compostWord(wordObj)}
           onRestoreFromCompost={(wordName) => restoreFromCompost(wordName)}
         />
@@ -2261,9 +2700,39 @@ export const GrowcabularyPlatform: React.FC = () => {
                       )
                     )}
                   </div>
-                  <h2 className="serif text-3xl sm:text-4xl font-black text-emerald-950">
-                    {selectedGardenWord.word}
-                  </h2>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h2 className="serif text-3xl sm:text-4xl font-black text-emerald-950">
+                      {selectedGardenWord.word}
+                    </h2>
+                    <SpeakWordButton
+                      word={selectedGardenWord.word}
+                      size="sm"
+                      showLabel
+                    />
+                    {!selectedGardenWord.isComposted && (
+                      <button
+                        type="button"
+                        onClick={() => toggleFavoriteWord(selectedGardenWord)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                          selectedGardenWord.isFavorite
+                            ? 'bg-amber-100 text-amber-900 border-amber-300'
+                            : 'bg-[#FAF7EE] hover:bg-amber-50 text-emerald-900 border-[#DCE5D5]'
+                        }`}
+                        title="Shortcut: F"
+                      >
+                        <Star
+                          className={`w-3.5 h-3.5 ${
+                            selectedGardenWord.isFavorite
+                              ? 'fill-amber-500 text-amber-600'
+                              : 'text-amber-600'
+                          }`}
+                        />
+                        <span>
+                          {selectedGardenWord.isFavorite ? 'Favorited' : 'Favorite'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -2669,6 +3138,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                             <span className="serif font-bold text-emerald-950 truncate">
                               {res.word}
                             </span>
+                            <SpeakWordButton word={res.word} size="xs" />
                             {typeof res.points === 'number' && (
                               <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 tabular-nums">
                                 +{res.points} pts
@@ -2802,7 +3272,9 @@ export const GrowcabularyPlatform: React.FC = () => {
       {/* First-Visit Onboarding Tutorial Modal */}
       <OnboardingTutorialModal
         isOpen={showTutorial}
+        isNewUser={gardenList.length === 0}
         onClose={dismissTutorial}
+        onSkipOrExit={handleTutorialSkipOrExit}
         onStartSeedSprout={handleStartFromTutorial}
       />
 

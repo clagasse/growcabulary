@@ -26,6 +26,8 @@ import {
 } from '../../utils/srs';
 import { classifyOriginBranch, getSafeEtymologyHint } from '../../utils/etymology';
 import { EtymologyPhylogenyExplorer } from './EtymologyPhylogenyExplorer';
+import { LivingConservatoryPlot } from './LivingConservatoryPlot';
+import { SpeakWordButton, speakWord } from '../SpeakWordButton';
 import { getFieldNotePassage } from '../../utils/fieldQuotes';
 import {
   X,
@@ -43,23 +45,26 @@ import {
   Undo2,
   Eye,
   EyeOff,
+  Star,
 } from 'lucide-react';
 
 interface SecretGardenConservatoryProps {
   gardenList: GardenEntry[];
   allLexiconWords: Word[];
   initialFieldMode?: 'grid' | 'flashcards';
+  isModalOverlayOpen?: boolean;
   onClose: () => void;
   onSelectWordDossier: (word: GardenEntry) => void;
   onUpdateGardenEntry: (updated: GardenEntry, countsTowardGoal?: boolean) => void;
+  onToggleFavorite: (wordObj: Word) => void;
   onCompostWord: (wordObj: Word) => void;
   onRestoreFromCompost: (word: string) => void;
 }
 
 type ConservatoryTab = 'words' | 'flashcards' | 'network';
-type FlashcardScope = 'due' | 'all';
+type FlashcardScope = 'due' | 'favorites' | 'all';
 type FlashcardDirection = 'clue-to-word' | 'word-to-meaning';
-type StageFilterType = GrowthStage | 'all' | 'thirsty' | 'compost';
+type StageFilterType = GrowthStage | 'all' | 'thirsty' | 'favorites' | 'compost';
 type SortOption = 'topic' | 'difficulty' | 'due' | 'az' | 'recent';
 
 const DIFFICULTY_ORDER_INDEX = new Map<DifficultyTier, number>(
@@ -93,9 +98,11 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
   gardenList,
   allLexiconWords,
   initialFieldMode = 'grid',
+  isModalOverlayOpen = false,
   onClose,
   onSelectWordDossier,
   onUpdateGardenEntry,
+  onToggleFavorite,
   onCompostWord,
   onRestoreFromCompost,
 }) => {
@@ -159,6 +166,11 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
     [activeEntries]
   );
 
+  const favoriteCount = useMemo(
+    () => activeEntries.filter((g) => g.isFavorite).length,
+    [activeEntries]
+  );
+
   const masteredCount = useMemo(
     () => activeEntries.filter((g) => isWordMastered(g)).length,
     [activeEntries]
@@ -206,9 +218,11 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
         return false;
       }
       if (stageFilter === 'thirsty' && !isWordThirsty(item)) return false;
+      if (stageFilter === 'favorites' && !item.isFavorite) return false;
       if (
         stageFilter !== 'all' &&
         stageFilter !== 'thirsty' &&
+        stageFilter !== 'favorites' &&
         stageFilter !== 'compost' &&
         (item.growthStage || 'sprout') !== stageFilter
       ) {
@@ -284,9 +298,16 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
     [scopedActiveFlashcards]
   );
 
+  const scopedFavoriteFlashcards = useMemo(
+    () => scopedActiveFlashcards.filter((g) => g.isFavorite),
+    [scopedActiveFlashcards]
+  );
+
   const flashcardDeckEntries = useMemo(() => {
     const pool =
-      flashcardScope === 'due' && scopedDueFlashcards.length > 0
+      flashcardScope === 'favorites'
+        ? scopedFavoriteFlashcards
+        : flashcardScope === 'due' && scopedDueFlashcards.length > 0
         ? scopedDueFlashcards
         : scopedActiveFlashcards;
 
@@ -300,7 +321,12 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
       if (tDiff !== 0) return tDiff;
       return a.word.localeCompare(b.word);
     });
-  }, [flashcardScope, scopedDueFlashcards, scopedActiveFlashcards]);
+  }, [
+    flashcardScope,
+    scopedDueFlashcards,
+    scopedFavoriteFlashcards,
+    scopedActiveFlashcards,
+  ]);
 
   useEffect(() => {
     if (activeTab !== 'flashcards' || !pendingCardTarget) return;
@@ -358,6 +384,55 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
     flashcardDeckEntries.length > 0
       ? flashcardDeckEntries[Math.min(cardIndex, flashcardDeckEntries.length - 1)]
       : null;
+
+  useEffect(() => {
+    if (activeTab !== 'flashcards' || !currentFlashcard || isModalOverlayOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inInput =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT';
+      if (inInput) return;
+
+      if (e.code === 'Space' || e.key === 'Enter') {
+        e.preventDefault();
+        setIsCardFlipped((prev) => !prev);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        resetCardState();
+        setCardIndex((prev) =>
+          prev > 0 ? prev - 1 : Math.max(0, flashcardDeckEntries.length - 1)
+        );
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        resetCardState();
+        setCardIndex((prev) =>
+          flashcardDeckEntries.length > 0 ? (prev + 1) % flashcardDeckEntries.length : 0
+        );
+      } else if (isCardFlipped && e.key === '1') {
+        e.preventDefault();
+        handleGradeFlashcard(currentFlashcard, 2, true);
+      } else if (isCardFlipped && e.key === '2') {
+        e.preventDefault();
+        handleGradeFlashcard(currentFlashcard, 4, true);
+      } else if (isCardFlipped && e.key === '3') {
+        e.preventDefault();
+        handleGradeFlashcard(currentFlashcard, 5, true);
+      } else if (
+        (e.key === 's' || e.key === 'S') &&
+        (isCardFlipped || flashcardDirection === 'word-to-meaning')
+      ) {
+        e.preventDefault();
+        speakWord(currentFlashcard.word);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        onToggleFavorite(currentFlashcard);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
 
   const handleGradeFlashcard = (
     entry: GardenEntry,
@@ -417,6 +492,7 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
               <p className="text-xs text-emerald-800 font-semibold mt-0.5">
                 {activeEntries.length} active {activeEntries.length === 1 ? 'word' : 'words'} ·{' '}
                 {masteredCount} mastered
+                {favoriteCount > 0 ? ` · ★ ${favoriteCount} favorite${favoriteCount === 1 ? '' : 's'}` : ''}
                 {thirstyCount > 0 ? ` · ${thirstyCount} due for review` : ''}
                 {compostEntries.length > 0 ? ` · ${compostEntries.length} compost` : ''}
               </p>
@@ -481,9 +557,28 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
           </div>
         </div>
 
-        {/* TAB 1: MY WORDS (CLEAN FILTERED SPECIMEN GRID) */}
+        {/* TAB 1: MY WORDS (LIVING CONSERVATORY PLOT + FILTERED SPECIMEN GRID) */}
         {activeTab === 'words' && (
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F8F6EE]/60 space-y-4">
+            {/* Sunlit Living Greenhouse Visual Plot */}
+            {stageFilter !== 'compost' && (
+              <LivingConservatoryPlot
+                activeEntries={activeEntries}
+                thirstyCount={thirstyCount}
+                favoriteCount={favoriteCount}
+                onSelectPlant={(entry) => onSelectWordDossier(entry)}
+                onWaterDue={() => {
+                  setFlashcardScope('due');
+                  setActiveTab('flashcards');
+                  resetCardState();
+                  setCardIndex(0);
+                }}
+                onFilterFavorites={() =>
+                  setStageFilter((prev) => (prev === 'favorites' ? 'all' : 'favorites'))
+                }
+              />
+            )}
+
             {/* Single Compact Filter Bar */}
             <div className="bg-[#FFFDF8] p-3.5 rounded-2xl border border-[#DCE5D5] shadow-sm space-y-2.5">
               <div className="flex flex-wrap items-center gap-2">
@@ -511,6 +606,7 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                   aria-label="Filter by word status or stage"
                 >
                   <option value="all">All Active ({activeEntries.length})</option>
+                  <option value="favorites">★ Favorites ({favoriteCount})</option>
                   <option value="thirsty">💧 Due for Review ({thirstyCount})</option>
                   {(Object.keys(GROWTH_STAGE_META) as GrowthStage[]).map((stageKey) => {
                     const meta = GROWTH_STAGE_META[stageKey];
@@ -645,11 +741,17 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
             {filteredFieldGuide.length === 0 ? (
               <div className="py-16 text-center bg-[#FFFDF8] rounded-3xl border border-[#DCE5D5] p-8">
                 <span className="text-5xl block mb-3">
-                  {stageFilter === 'compost' ? '🍂' : '🌱'}
+                  {stageFilter === 'compost'
+                    ? '🍂'
+                    : stageFilter === 'favorites'
+                    ? '⭐'
+                    : '🌱'}
                 </span>
                 <p className="serif font-bold text-xl text-emerald-950">
                   {stageFilter === 'compost'
                     ? 'Your Compost bin is empty.'
+                    : stageFilter === 'favorites'
+                    ? 'No favorite words yet.'
                     : activeEntries.length === 0
                     ? 'Your Garden is empty!'
                     : 'No words match your current filter.'}
@@ -657,6 +759,8 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                 <p className="text-xs text-emerald-700 mt-1 max-w-md mx-auto">
                   {stageFilter === 'compost'
                     ? 'Words you already know well can be moved to Compost to exclude them from future rounds and flashcards.'
+                    : stageFilter === 'favorites'
+                    ? 'Click the ★ star on any word card, dossier, or flashcard to keep quick-review favorites.'
                     : activeEntries.length === 0
                     ? 'Complete a round of Seed Sprout to add words to your Garden.'
                     : 'Try clearing your search, stage, or category filter.'}
@@ -756,10 +860,11 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                               <span>Tap to reveal word</span>
                             </button>
                           ) : (
-                            <div className="flex items-baseline gap-1.5 min-w-0">
-                              <h3 className="serif text-xl font-black text-emerald-950 group-hover:text-emerald-700 transition-colors">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <h3 className="serif text-xl font-black text-emerald-950 group-hover:text-emerald-700 transition-colors truncate">
                                 {entry.word}
                               </h3>
+                              <SpeakWordButton word={entry.word} size="xs" />
                               {isWordRevealedInTest && (
                                 <button
                                   type="button"
@@ -773,9 +878,41 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                               )}
                             </div>
                           )}
-                          <span className="text-[10px] font-bold uppercase text-emerald-700 shrink-0">
-                            {entry.form}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {!entry.isComposted && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onToggleFavorite(entry);
+                                }}
+                                className={`p-1 rounded-full transition-colors ${
+                                  entry.isFavorite
+                                    ? 'text-amber-500 bg-amber-50 hover:bg-amber-100'
+                                    : 'text-stone-400 hover:text-amber-500 hover:bg-amber-50'
+                                }`}
+                                title={
+                                  entry.isFavorite
+                                    ? 'Remove from Favorites'
+                                    : 'Favorite this word'
+                                }
+                                aria-label={
+                                  entry.isFavorite
+                                    ? `Unfavorite ${entry.word}`
+                                    : `Favorite ${entry.word}`
+                                }
+                              >
+                                <Star
+                                  className={`w-3.5 h-3.5 ${
+                                    entry.isFavorite ? 'fill-amber-400 text-amber-500' : ''
+                                  }`}
+                                />
+                              </button>
+                            )}
+                            <span className="text-[10px] font-bold uppercase text-emerald-700">
+                              {entry.form}
+                            </span>
+                          </div>
                         </div>
 
                         <p className="serif text-xs sm:text-sm text-emerald-900 line-clamp-2 mb-3 leading-relaxed">
@@ -949,13 +1086,32 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                   </button>
                   <button
                     type="button"
+                    disabled={scopedFavoriteFlashcards.length === 0}
+                    onClick={() => {
+                      setFlashcardScope('favorites');
+                      setCardIndex(0);
+                      resetCardState();
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[11px] font-black transition-all border ${
+                      flashcardScope === 'favorites'
+                        ? 'bg-amber-600 text-white border-amber-700 shadow-sm'
+                        : scopedFavoriteFlashcards.length === 0
+                        ? 'bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed'
+                        : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
+                    }`}
+                  >
+                    ★ Favorites ({scopedFavoriteFlashcards.length})
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       setFlashcardScope('all');
                       setCardIndex(0);
                       resetCardState();
                     }}
                     className={`px-3 py-1.5 rounded-full text-[11px] font-black transition-all border ${
-                      flashcardScope === 'all' || scopedDueFlashcards.length === 0
+                      flashcardScope === 'all' ||
+                      (flashcardScope === 'due' && scopedDueFlashcards.length === 0)
                         ? 'bg-emerald-800 text-white border-emerald-900 shadow-sm'
                         : 'bg-[#F4F7F0] text-emerald-900 border-[#DCE5D5] hover:bg-emerald-100'
                     }`}
@@ -1100,12 +1256,14 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                     ? 'Complete a round of Seed Sprout to grow your Garden deck.'
                     : 'Clear the category or origin filter to review all active cards.'}
                 </p>
-                {(difficultyFilter !== 'all' ||
+                {(flashcardScope !== 'all' ||
+                  difficultyFilter !== 'all' ||
                   topicFilter !== 'all' ||
                   originFilter !== 'all') && (
                   <button
                     type="button"
                     onClick={() => {
+                      setFlashcardScope('all');
                       setDifficultyFilter('all');
                       setTopicFilter('all');
                       setOriginFilter('all');
@@ -1114,7 +1272,7 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                     }}
                     className="mt-4 px-4 py-2 rounded-full bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition-colors"
                   >
-                    Show Full Deck
+                    Show All Cards
                   </button>
                 )}
               </div>
@@ -1179,6 +1337,25 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                         >
                           💧 {thirsty ? 'Due for Review' : `Reviewed (${hydration}%)`}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => onToggleFavorite(currentFlashcard)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                            currentFlashcard.isFavorite
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-[#F4F7F0] hover:bg-amber-50 text-emerald-900 border-[#DCE5D5]'
+                          }`}
+                          title="Shortcut: F"
+                        >
+                          <Star
+                            className={`w-3 h-3 ${
+                              currentFlashcard.isFavorite
+                                ? 'fill-amber-500 text-amber-600'
+                                : 'text-amber-600'
+                            }`}
+                          />
+                          <span>{currentFlashcard.isFavorite ? 'Starred' : 'Favorite'}</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleCompostFromConservatory(currentFlashcard)}
@@ -1297,9 +1474,12 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                                     <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-2">
                                       Recall the Meaning
                                     </p>
-                                    <h3 className="serif text-4xl sm:text-5xl font-black text-emerald-950">
-                                      {currentFlashcard.word}
-                                    </h3>
+                                    <div className="flex items-center justify-center gap-3">
+                                      <h3 className="serif text-4xl sm:text-5xl font-black text-emerald-950">
+                                        {currentFlashcard.word}
+                                      </h3>
+                                      <SpeakWordButton word={currentFlashcard.word} size="md" />
+                                    </div>
                                   </div>
 
                                   <button
@@ -1309,6 +1489,9 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                                   >
                                     <RotateCcw className="w-4 h-4" />
                                     <span>Flip to Reveal Meaning</span>
+                                    <span className="hidden sm:inline text-[10px] font-black uppercase bg-emerald-950/50 border border-white/20 px-1.5 py-0.5 rounded">
+                                      Space
+                                    </span>
                                   </button>
                                 </div>
                               )}
@@ -1340,9 +1523,16 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 block">
                                     Answer
                                   </span>
-                                  <h3 className="serif text-3xl sm:text-4xl font-black text-emerald-950">
-                                    {currentFlashcard.word}
-                                  </h3>
+                                  <div className="flex flex-wrap items-center gap-2.5">
+                                    <h3 className="serif text-3xl sm:text-4xl font-black text-emerald-950">
+                                      {currentFlashcard.word}
+                                    </h3>
+                                    <SpeakWordButton
+                                      word={currentFlashcard.word}
+                                      size="sm"
+                                      showLabel
+                                    />
+                                  </div>
                                 </div>
 
                                 {scratchGuess.trim() && (
@@ -1421,8 +1611,11 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                                     onClick={() => handleGradeFlashcard(currentFlashcard, 2, true)}
                                     className="p-3.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border-2 border-amber-200 text-amber-950 text-left transition-all flex flex-col justify-between"
                                   >
-                                    <span className="text-xs font-black uppercase flex items-center gap-1.5">
-                                      Again
+                                    <span className="text-xs font-black uppercase flex items-center justify-between gap-1.5">
+                                      <span>Again</span>
+                                      <kbd className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-white/80 border border-amber-300">
+                                        1
+                                      </kbd>
                                     </span>
                                     <span className="text-[11px] text-amber-800 mt-1">
                                       Review again in 1 day
@@ -1434,8 +1627,13 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                                     onClick={() => handleGradeFlashcard(currentFlashcard, 4, true)}
                                     className="p-3.5 rounded-2xl bg-sky-600 hover:bg-sky-700 border-2 border-sky-700 text-white text-left transition-all shadow-md flex flex-col justify-between"
                                   >
-                                    <span className="text-xs font-black uppercase flex items-center gap-1.5">
-                                      <Droplets className="w-3.5 h-3.5" /> Good
+                                    <span className="text-xs font-black uppercase flex items-center justify-between gap-1.5">
+                                      <span className="flex items-center gap-1.5">
+                                        <Droplets className="w-3.5 h-3.5" /> Good
+                                      </span>
+                                      <kbd className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-sky-800/70 border border-sky-400/50">
+                                        2
+                                      </kbd>
                                     </span>
                                     <span className="text-[11px] text-sky-100 mt-1">
                                       Advance review interval
@@ -1447,14 +1645,26 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                                     onClick={() => handleGradeFlashcard(currentFlashcard, 5, true)}
                                     className="p-3.5 rounded-2xl bg-emerald-800 hover:bg-emerald-900 border-2 border-emerald-950 text-white text-left transition-all shadow-md flex flex-col justify-between"
                                   >
-                                    <span className="text-xs font-black uppercase flex items-center gap-1.5">
-                                      <Sun className="w-3.5 h-3.5 text-amber-300" /> Easy
+                                    <span className="text-xs font-black uppercase flex items-center justify-between gap-1.5">
+                                      <span className="flex items-center gap-1.5">
+                                        <Sun className="w-3.5 h-3.5 text-amber-300" /> Easy
+                                      </span>
+                                      <kbd className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/50">
+                                        3
+                                      </kbd>
                                     </span>
                                     <span className="text-[11px] text-emerald-100 mt-1">
                                       Maximum interval boost
                                     </span>
                                   </button>
                                 </div>
+                                <p className="hidden sm:block text-[10px] text-center text-emerald-700/80 font-semibold mt-3">
+                                  Shortcuts: <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Space</kbd> Flip ·{' '}
+                                  <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">←/→</kbd> Card ·{' '}
+                                  <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">1/2/3</kbd> Rate ·{' '}
+                                  <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">S</kbd> Pronounce ·{' '}
+                                  <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">F</kbd> Favorite
+                                </p>
                               </div>
                             </div>
                           </div>

@@ -127,6 +127,7 @@ export const WordHintToolbar: React.FC<WordHintToolbarProps> = ({
           type="button"
           disabled={etymologyUnlocked}
           onClick={onUnlockEtymology}
+          title="Shortcut: Alt+E"
           className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold border transition-all ${
             etymologyUnlocked
               ? 'bg-amber-100 text-amber-950 border-amber-300 cursor-default'
@@ -140,6 +141,7 @@ export const WordHintToolbar: React.FC<WordHintToolbarProps> = ({
         <button
           type="button"
           onClick={onToggleLetterBank}
+          title="Shortcut: Alt+T"
           className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold border transition-all ${
             letterBankActive
               ? 'bg-emerald-800 text-white border-emerald-900 shadow-sm'
@@ -167,6 +169,7 @@ export const WordHintToolbar: React.FC<WordHintToolbarProps> = ({
         <button
           type="button"
           onClick={() => onRevealIndices([], 'letter')}
+          title="Shortcut: Alt+L"
           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#F4F7F0] hover:bg-[#E6EFE2] text-emerald-800 border border-[#DCE5D5] text-xs font-bold shadow-sm transition-all"
         >
           <Sparkles className="w-3.5 h-3.5 text-emerald-600" />

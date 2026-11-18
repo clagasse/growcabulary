@@ -6,7 +6,6 @@ import {
   GrowthStage,
   RecallOutcome,
   RoundEntryResult,
-  TopicCategory,
   Word,
 } from '../../types';
 import {
@@ -14,8 +13,8 @@ import {
   GROWTH_STAGE_META,
   getDifficultyMeta,
   getTopicMeta,
-  getWordTopic,
 } from '../../constants';
+import { SpeakWordButton, speakWord } from '../SpeakWordButton';
 import {
   Feather,
   Sparkles,
@@ -27,13 +26,13 @@ import {
   Archive,
   RotateCcw,
   Send,
-  Lightbulb,
 } from 'lucide-react';
 import type { EvaluateSentenceResponse } from '../../app/api/evaluate-sentence/route';
 
 export interface InYourOwnWordsPlaceholderProps {
   roundWords: Word[];
   discoveredPool: GardenEntry[];
+  isOverlayActive?: boolean;
   onRecordOutcome: (
     word: Word,
     outcome: RecallOutcome,
@@ -42,44 +41,6 @@ export interface InYourOwnWordsPlaceholderProps {
   onCompleteRound: (results: RoundEntryResult[]) => void;
   onSwitchToSeedSprout?: () => void;
 }
-
-const TOPIC_SPARKS: Record<TopicCategory, string[]> = {
-  emotions: [
-    'Describe how someone reacted in a tense conversation.',
-    'Write about returning to a familiar place.',
-    'Show someone hiding what they really feel.',
-  ],
-  philosophy: [
-    'Compare two views on truth or uncertainty.',
-    'Apply this idea to an everyday choice.',
-    'Describe a belief that changed over time.',
-  ],
-  biology: [
-    'Describe a detail in a garden or forest.',
-    'Show how a plant or animal adapts.',
-    'Write about how seasons change a habitat.',
-  ],
-  architecture: [
-    'Describe how light and stone shape a room.',
-    'Contrast a grand building with a worn structure.',
-    'Write about entering an unfamiliar hall or courtyard.',
-  ],
-  statecraft: [
-    'Describe how a speech or treaty shifted events.',
-    'Write about a public debate or policy decision.',
-    'Contrast official promises with daily reality.',
-  ],
-  literature: [
-    'Describe a novel, poem, or writer’s style.',
-    'Write about a character’s voice or turning point.',
-    'Start a short story set at dusk.',
-  ],
-  general: [
-    'Show who did what and why it mattered.',
-    'Add a "because" or "although" clause for context.',
-    'Describe a specific moment from an ordinary day.',
-  ],
-};
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -141,6 +102,7 @@ function isCopiedReference(sentence: string, reference?: string): boolean {
 export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
   roundWords,
   discoveredPool,
+  isOverlayActive = false,
   onRecordOutcome,
   onCompleteRound,
   onSwitchToSeedSprout,
@@ -148,7 +110,6 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
   const [currentIdx, setCurrentIdx] = useState(0);
   const [roundResults, setRoundResults] = useState<RoundEntryResult[]>([]);
   const [draftSentence, setDraftSentence] = useState('');
-  const [sparkIdx, setSparkIdx] = useState<number | null>(null);
   const [showExampleHint, setShowExampleHint] = useState(false);
   const [usedHint, setUsedHint] = useState(false);
   const [revisionCount, setRevisionCount] = useState(0);
@@ -161,7 +122,6 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
 
   const resetComposerForWord = () => {
     setDraftSentence('');
-    setSparkIdx(null);
     setShowExampleHint(false);
     setUsedHint(false);
     setRevisionCount(0);
@@ -214,7 +174,6 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
   const stageMeta = GROWTH_STAGE_META[stage];
   const diffMeta = getDifficultyMeta(currentWord);
   const topicMeta = getTopicMeta(currentWord);
-  const sparks = TOPIC_SPARKS[getWordTopic(currentWord)] || TOPIC_SPARKS.general;
 
   const trimmedSentence = draftSentence.trim();
   const wordCount = trimmedSentence ? trimmedSentence.split(/\s+/).filter(Boolean).length : 0;
@@ -354,9 +313,30 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
     }
   };
 
-  const handleCycleSpark = () => {
-    setSparkIdx((prev) => (prev === null ? 0 : (prev + 1) % sparks.length));
-  };
+  useEffect(() => {
+    if (isOverlayActive) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inInput =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT';
+      if (inInput || !currentWord) return;
+
+      if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        speakWord(currentWord.word);
+      } else if (lockedOutcome && e.key === 'Enter') {
+        e.preventDefault();
+        advanceToNextOrFinish(roundResults);
+      } else if (evalResult && !lockedOutcome && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        handleReviseSentence();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
 
   return (
     <div className="w-full journal-card rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 relative overflow-hidden">
@@ -462,9 +442,12 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
           </span>
         </div>
 
-        <h2 className="serif text-3xl sm:text-4xl font-black text-emerald-950 mb-1.5">
-          {currentWord.word}
-        </h2>
+        <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+          <h2 className="serif text-3xl sm:text-4xl font-black text-emerald-950">
+            {currentWord.word}
+          </h2>
+          <SpeakWordButton word={currentWord.word} size="sm" showLabel />
+        </div>
         <p className="serif text-sm sm:text-base font-semibold text-emerald-900 leading-snug">
           {currentWord.definition}
         </p>
@@ -484,18 +467,9 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
         )}
       </div>
 
-      {/* Optional Spark & Assisted Example Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <button
-          type="button"
-          onClick={handleCycleSpark}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 transition-colors"
-        >
-          <Lightbulb className="w-3.5 h-3.5 text-purple-700" />
-          <span>{sparkIdx === null ? '💡 Prompt Idea' : '💡 Another Idea'}</span>
-        </button>
-
-        {!showExampleHint && (
+      {/* Optional Assisted Example Toolbar */}
+      {!showExampleHint && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
           <button
             type="button"
             onClick={handleToggleExampleHint}
@@ -504,16 +478,6 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
             <BookOpen className="w-3.5 h-3.5 text-amber-700" />
             <span>📖 Show Example &amp; Roots (Assisted)</span>
           </button>
-        )}
-      </div>
-
-      {/* Prompt Idea Banner */}
-      {sparkIdx !== null && (
-        <div className="mb-4 p-3.5 rounded-2xl bg-purple-50/80 border border-purple-200 text-xs sm:text-sm text-purple-950 animate-fade-in">
-          <span className="text-[10px] font-black uppercase tracking-widest text-purple-700 block mb-0.5">
-            Prompt Idea ({topicMeta.label})
-          </span>
-          <p className="font-medium leading-relaxed">{sparks[sparkIdx % sparks.length]}</p>
         </div>
       )}
 
@@ -572,7 +536,7 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
               handleEvaluateSentence();
             }
           }}
-          placeholder={`Use "${currentWord.word}" in a sentence...`}
+          placeholder={`Use "${currentWord.word}" in an original sentence...`}
           className="w-full p-3.5 rounded-xl bg-[#FAF7EE] border-2 border-[#C8D8C2] focus:border-purple-700 focus:bg-[#FFFDF8] disabled:opacity-80 outline-none serif text-sm sm:text-base text-emerald-950 resize-none transition-colors"
         />
 
@@ -691,6 +655,9 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
           <span>
             {currentIdx + 1 < roundWords.length ? 'Next Word' : 'Complete Round'}
           </span>
+          <span className="hidden sm:inline text-[10px] font-black uppercase bg-emerald-950/50 border border-white/20 px-1.5 py-0.5 rounded">
+            Enter ↵
+          </span>
           <ArrowRight className="w-4 h-4" />
         </button>
       ) : (
@@ -718,6 +685,11 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
           </button>
         </div>
       )}
+      <p className="hidden sm:block text-[10px] text-center text-emerald-700/80 font-semibold mt-2.5">
+        Shortcuts: <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Ctrl/⌘ + Enter</kbd> Check sentence ·{' '}
+        <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">S</kbd> Pronounce ·{' '}
+        <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Enter</kbd> Next (when complete)
+      </p>
     </div>
   );
 };

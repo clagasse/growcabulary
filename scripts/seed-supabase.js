@@ -149,17 +149,30 @@ const DECKS_META = [
   },
 ];
 
+function loadExportObject(relPath, constName) {
+  const fullPath = path.join(__dirname, '..', relPath);
+  if (!fs.existsSync(fullPath)) return {};
+  const fileContent = fs.readFileSync(fullPath, 'utf8');
+  const runnable = fileContent
+    .replace(/import\s+[\s\S]*?from\s+['"][^'"]+['"];?/g, '')
+    .replace(/export\s+type\s+[^\n]+;?/g, '')
+    .replace(/export\s+interface\s+[\s\S]*?\n\}/g, '')
+    .replace(/export\s+function\s+[\s\S]*$/m, '')
+    .replace(new RegExp(`export\\s+const\\s+${constName}[^=]*=`), `const ${constName} =`)
+    .concat(`\n;${constName};`);
+  return vm.runInNewContext(runnable, {});
+}
+
 async function seedSupabase() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Load curated words from utils/data.ts
-  const dataPath = path.join(__dirname, '..', 'utils', 'data.ts');
-  const fileContent = fs.readFileSync(dataPath, 'utf8');
-  const runnable = fileContent
-    .replace(/import\s+.*?from\s+['"][^'"]+['"];?/g, '')
-    .replace(/export\s+const\s+RAW_WORDS\s*:\s*Word\[\]\s*=/, 'const RAW_WORDS =')
-    .concat('\n;RAW_WORDS;');
-  const words = vm.runInNewContext(runnable, {});
+  // Load curated words, field quotes, and alternatives from utils/
+  const words = loadExportObject('utils/data.ts', 'RAW_WORDS');
+  const curatedQuotes = loadExportObject('utils/fieldQuotes.ts', 'CURATED_FIELD_QUOTES');
+  const fieldAlternatives = loadExportObject(
+    'utils/fieldAlternatives.ts',
+    'FIELD_NOTE_ALTERNATIVES'
+  );
 
   console.log(`🌿 Connecting to Supabase: ${SUPABASE_URL}`);
   console.log(`📦 Upserting ${DECKS_META.length} Growcabulary Decks...`);
@@ -179,21 +192,27 @@ async function seedSupabase() {
     slugToId[d.slug] = d.id;
   });
 
-  console.log(`📚 Preparing ${words.length} curated words for bulk upsert...`);
+  console.log(`📚 Preparing ${words.length} curated words + game metadata for bulk upsert...`);
 
   const wordRows = words
     .map((w) => {
       const deckId = slugToId[w.seed];
       if (!deckId) return null;
+      const lower = w.word.toLowerCase();
+      const quoteEntry = curatedQuotes[lower];
       return {
         deck_id: deckId,
         term: w.word,
+        topic: w.topic || 'general',
         part_of_speech: w.form,
         definition: w.definition,
         definition2: w.definition2 || null,
         etymology: w.etymology,
         origin: w.origin,
         example_sentence: w.example,
+        field_quote: w.fieldQuote || quoteEntry?.quote || null,
+        field_quote_author: w.fieldQuoteAuthor || quoteEntry?.author || null,
+        field_alternatives: fieldAlternatives[lower] || null,
         status: 'approved',
       };
     })
@@ -210,6 +229,11 @@ async function seedSupabase() {
 
     if (wordErr) {
       console.error(`❌ Error upserting batch starting at ${i}:`, wordErr.message);
+      if (/field_quote|field_alternatives|topic|schema cache/i.test(wordErr.message)) {
+        console.error(
+          '💡 Run supabase/migrations/004_word_game_metadata.sql in your Supabase SQL Editor first, then re-run npm run seed-supabase.'
+        );
+      }
       process.exit(1);
     }
     insertedTotal += chunk.length;

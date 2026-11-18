@@ -19,6 +19,7 @@ import {
   ORIGIN_EMOJI_MAP,
   getDifficultyMeta,
 } from '../../constants';
+import { SpeakWordButton } from '../SpeakWordButton';
 import {
   AncestralLineageInfo,
   ExtractedMorpheme,
@@ -1312,6 +1313,7 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
                         <span className="text-[9px] font-bold uppercase bg-emerald-800 text-white px-2 py-0.5 rounded-full">
                           {selectedDetails.node.wordData.form}
                         </span>
+                        <SpeakWordButton word={selectedDetails.node.wordData.word} size="xs" />
                       </div>
                       <p className="text-[10.5px] font-bold text-emerald-700">
                         {ORIGIN_EMOJI_MAP[selectedDetails.node.lineage?.rootOrigin || ''] || '🌱'}{' '}
