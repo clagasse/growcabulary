@@ -36,6 +36,7 @@ import {
   SelectedStatusCluster,
 } from './LivingConservatoryPlot';
 import { SpeakWordButton, speakWord } from '../SpeakWordButton';
+import { BotanicalPlateSpecimen } from '../BotanicalPlateSpecimen';
 import { getFieldNotePassage } from '../../utils/fieldQuotes';
 import {
   X,
@@ -1553,10 +1554,16 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                             }`}
                           />
                           <div
-                            className={`p-6 sm:p-8 flex-1 bg-gradient-to-b ${
+                            className={`relative overflow-hidden p-6 sm:p-8 flex-1 bg-gradient-to-b ${
                               topicMeta.cardTintClass || 'from-[#F4FAF1]/70 via-[#FFFDF8] to-[#FFFDF8]'
                             }`}
                           >
+                            <BotanicalPlateSpecimen
+                              word={currentFlashcard.word}
+                              variant="flashcard"
+                              showCaption={false}
+                            />
+                            <div className="relative z-10">
                             {renderCardHeader(false)}
                             <div className="space-y-6 py-2">
                               {flashcardDirection === 'clue-to-word' ? (
@@ -1664,6 +1671,7 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                                 </div>
                               )}
                             </div>
+                            </div>
                           </div>
                         </div>
 
@@ -1680,10 +1688,17 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                             }`}
                           />
                           <div
-                            className={`p-6 sm:p-8 flex-1 bg-gradient-to-b ${
+                            className={`relative overflow-hidden p-6 sm:p-8 flex-1 flex flex-col bg-gradient-to-b ${
                               topicMeta.cardTintClass || 'from-[#F4FAF1]/70 via-[#FFFDF8] to-[#FFFDF8]'
                             }`}
                           >
+                            <BotanicalPlateSpecimen
+                              word={currentFlashcard.word}
+                              variant="flashcard"
+                              showCaption
+                              className="order-last mt-3"
+                            />
+                            <div className="relative z-10">
                             {renderCardHeader(true)}
                             <div className="space-y-5">
                               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1838,6 +1853,7 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                                   <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">F</kbd> Favorite
                                 </p>
                               </div>
+                            </div>
                             </div>
                           </div>
                         </div>

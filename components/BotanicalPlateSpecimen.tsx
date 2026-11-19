@@ -6,7 +6,7 @@ import { X } from 'lucide-react';
 
 interface BotanicalPlateSpecimenProps {
   word: string;
-  variant?: 'dossier' | 'reveal' | 'game-bg';
+  variant?: 'dossier' | 'reveal' | 'game-bg' | 'flashcard';
   showCaption?: boolean;
   className?: string;
 }
@@ -49,7 +49,9 @@ export const BotanicalPlateSpecimen: React.FC<BotanicalPlateSpecimenProps> = ({
   if (!plate || failed) return null;
 
   const watermarkOpacity =
-    variant === 'game-bg'
+    variant === 'flashcard'
+      ? 'opacity-[0.16] sm:opacity-[0.20] p-4 sm:p-6'
+      : variant === 'game-bg'
       ? 'opacity-[0.26] sm:opacity-[0.32] p-3 sm:p-5'
       : variant === 'dossier'
       ? 'opacity-[0.28] sm:opacity-[0.32] p-3 sm:p-4'
