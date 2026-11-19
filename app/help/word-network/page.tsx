@@ -12,9 +12,9 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Word Network Guide',
+  title: 'Root Network Guide',
   description:
-    'Learn how Growcabulary’s Word Network maps origin zones, shared root hubs, Shared Ancient Roots across languages, and morpheme breakdowns.',
+    'Learn how Growcabulary’s Root Network groups words by language origin and connects them by shared roots, ancient shared roots, and prefixes.',
 };
 
 const ORIGIN_ZONES = [
@@ -23,28 +23,28 @@ const ORIGIN_ZONES = [
     name: 'Latin & Romance',
     dotClass: 'bg-[#15803D]',
     cardClass: 'bg-emerald-50/70 border-emerald-200 text-emerald-950',
-    desc: 'Words inherited from Classical/Late Latin or passed through Old French, Italian, Spanish, and Portuguese.',
+    desc: 'Latin words (green), with color-coded sub-groups for French (violet) and Italian & Spanish (terracotta) nested right inside.',
   },
   {
     emoji: '🌺',
     name: 'Greek',
     dotClass: 'bg-[#BE185D]',
     cardClass: 'bg-rose-50/70 border-rose-200 text-rose-950',
-    desc: 'Words rooted in Ancient Greek philosophy, medicine, science, rhetoric, and poetry.',
+    desc: 'Words from Ancient Greek philosophy, medicine, science, debate, and poetry.',
   },
   {
     emoji: '🌲',
     name: 'Germanic & Norse',
     dotClass: 'bg-[#4D7C0F]',
     cardClass: 'bg-lime-50/70 border-lime-200 text-lime-950',
-    desc: 'Words descending from Old English, Old Norse, Dutch, and German.',
+    desc: 'Words from Old English, Old Norse, Dutch, and German.',
   },
   {
     emoji: '🌍',
     name: 'World & Eponyms',
     dotClass: 'bg-[#B45309]',
     cardClass: 'bg-amber-50/70 border-amber-200 text-amber-950',
-    desc: 'Loanwords from Sanskrit, Arabic, Japanese, Portuguese, fictional coinages, and historical eponyms.',
+    desc: 'Words borrowed from Arabic, Hebrew, Tamil, Sanskrit, or named after real people and places.',
   },
 ];
 
@@ -53,14 +53,22 @@ export default function WordNetworkHelpPage() {
     <div className="min-h-screen hybrid-bg py-6 px-3 sm:px-6">
       <div className="max-w-4xl mx-auto journal-card rounded-3xl p-5 sm:p-8 space-y-8">
         {/* Top Navigation */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#DCE5D5]">
-          <Link
-            href="/help"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F4F7F0] hover:bg-emerald-100 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Help &amp; Guide</span>
-          </Link>
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-4 border-b border-[#DCE5D5]">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/help"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F4F7F0] hover:bg-emerald-100 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Help &amp; Guide</span>
+            </Link>
+            <Link
+              href="/help/garden"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#EDF5EB] hover:bg-emerald-100 text-emerald-900 border border-[#C6DEC2] text-xs font-bold transition-colors"
+            >
+              <span>Garden Guide 🌸 →</span>
+            </Link>
+          </div>
 
           <Link
             href="/"
@@ -79,13 +87,13 @@ export default function WordNetworkHelpPage() {
           <div className="flex items-center gap-2.5">
             <Network className="w-7 h-7 text-emerald-800 shrink-0" />
             <h1 className="serif text-3xl sm:text-4xl font-bold text-emerald-950">
-              How the Word Network Works
+              How the Root Network Works
             </h1>
           </div>
           <p className="text-sm text-emerald-900 leading-relaxed max-w-3xl">
-            The <strong>Word Network</strong> (inside <strong>Garden → Word Network</strong>) plots
-            your discovered vocabulary—or optionally the entire lexicon—as an interactive physics
-            map grouped by historical language origin and connected by shared etymological roots.
+            The <strong>Root Network</strong> (under <strong>Garden → Root Network</strong>) turns
+            your learned words—or the entire word list—into an interactive map grouped by where
+            words come from and linked by their shared roots.
           </p>
         </div>
 
@@ -98,8 +106,8 @@ export default function WordNetworkHelpPage() {
             </h2>
           </div>
           <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
-            Every word pulls naturally into its ancestral language zone—even if it passed through
-            French or Middle English on the way into modern English:
+            Every word naturally groups into its language family—with <strong>French</strong> and{' '}
+            <strong>Italian &amp; Spanish</strong> grouped inside <strong>Latin &amp; Romance</strong>:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {ORIGIN_ZONES.map((z) => (
@@ -137,10 +145,10 @@ export default function WordNetworkHelpPage() {
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
-                When 2 or more words in view share the exact same root stem, they cluster around a
-                gold <strong>Root Hub diamond</strong>. For example, Latin{' '}
-                <em>facere</em> (&ldquo;to make, do&rdquo;) links <em>facile</em>, <em>edifice</em>,{' '}
-                <em>munificent</em>, and <em>beatific</em>.
+                When 2 or more words share the same root, they gather around a gold{' '}
+                <strong>Root Hub diamond</strong>. For example, Latin <em>facere</em> (&ldquo;to
+                make, do&rdquo;) links <em>facile</em>, <em>edifice</em>, <em>munificent</em>, and{' '}
+                <em>beatific</em>.
               </p>
             </div>
 
@@ -148,15 +156,14 @@ export default function WordNetworkHelpPage() {
               <div className="flex items-center gap-2.5">
                 <span className="w-6 border-t-2 border-dashed border-[#7C3AED] inline-block shrink-0" />
                 <span className="text-sm font-black text-purple-950">
-                  Dashed Purple Line — Shared Ancient Root (Cross-Language Cousins)
+                  Dashed Purple Line — Shared Ancient Root (Distant Cousins)
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-purple-950 leading-relaxed">
-                Often words in <em>different</em> origin zones look completely different on the
-                surface, yet inherited the exact same prehistoric root independently (~5,000+ years
-                ago, known in linguistics as a <strong>Proto-Indo-European</strong> or{' '}
-                <em>PIE</em> root, marked with <code>*</code>). Dashed purple bridges stretch
-                across zones to reveal these hidden cousins:
+                Words from <em>different</em> languages often look completely unrelated today, even
+                though they came from the same ancient root thousands of years ago (linguists call
+                these <strong>Proto-Indo-European</strong> roots and mark them with{' '}
+                <code>*</code>). Dashed purple lines connect these distant cousins across zones:
               </p>
               <ul className="list-disc pl-5 space-y-1 text-xs text-purple-900">
                 <li>
@@ -171,7 +178,7 @@ export default function WordNetworkHelpPage() {
                   <strong>
                     <code>*weid-</code> (&ldquo;to see, know&rdquo;)
                   </strong>{' '}
-                  connects Latin <em>videre</em> (<em>prudent</em>, <em>vista</em>) ↔ Greek{' '}
+                  connects Latin <em>videre</em> (<em>jurisprudence</em>, <em>vista</em>) ↔ Greek{' '}
                   <em>eidos</em> (<em>kaleidoscope</em>) ↔ Old English <em>witan</em> (
                   <em>wistful</em>).
                 </li>
@@ -193,8 +200,8 @@ export default function WordNetworkHelpPage() {
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-amber-950 leading-relaxed">
-                To keep the map uncluttered at rest, prefix links only appear when you hover or click
-                a word—highlighting other words starting with the same normalized prefix (e.g.,{' '}
+                To keep the map easy to read, prefix lines only show up when you hover over or click
+                a word—highlighting other words that start with the same prefix (like{' '}
                 <code>anti-</code>, <code>ante-</code>, <code>com-/con-</code>, <code>in-/im-</code>
                 , or <code>inter-</code>).
               </p>
@@ -202,17 +209,17 @@ export default function WordNetworkHelpPage() {
           </div>
         </section>
 
-        {/* 3. Discovered vs Undiscovered + Morphemes */}
+        {/* 3. Discovered vs Full Word List */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="journal-subcard rounded-2xl p-4 space-y-2">
             <div className="flex items-center gap-2 font-black text-sm text-emerald-950">
               <Sparkles className="w-4 h-4 text-amber-600" />
-              <span>Discovered vs. Full Lexicon</span>
+              <span>Your Words vs. Full Word List</span>
             </div>
             <p className="text-xs text-emerald-800 leading-relaxed">
-              Solid colorful dots are <strong>words you have discovered</strong>. Toggle{' '}
-              <strong>Full Lexicon</strong> in the toolbar to also reveal undiscovered words (shown
-              as pale outlined dots with 🔒) so you can see full root families before unlocking them.
+              Solid colorful dots are <strong>words you&apos;ve already learned</strong>. Switch to{' '}
+              <strong>Full Lexicon</strong> in the toolbar to also see locked words (shown as pale
+              outlined dots with 🔒) so you can preview whole word families before unlocking them.
             </p>
           </div>
 
@@ -222,10 +229,10 @@ export default function WordNetworkHelpPage() {
               <span>Why Some Words Stand Alone</span>
             </div>
             <p className="text-xs text-emerald-800 leading-relaxed">
-              Suffixes like <code>-ous</code>, <code>-ity</code>, or <code>-tion</code> only mark
-              part of speech, so Growcabulary doesn&apos;t link unrelated words just because they
-              share an ending. Words whose root appears only once in your current view sit spaced
-              out around the edges of their Origin Zone.
+              Common endings like <code>-ous</code>, <code>-ity</code>, or <code>-tion</code> don&apos;t
+              mean two words are related, so we don&apos;t connect words just because they share an
+              ending. Words with a unique root sit spaced out around the edges of their language
+              zone.
             </p>
           </div>
         </section>
@@ -238,16 +245,16 @@ export default function WordNetworkHelpPage() {
           </div>
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs text-emerald-800">
             <li>
-              <strong>Scroll wheel:</strong> Zoom in/out (labels automatically declutter as you zoom).
+              <strong>Scroll wheel:</strong> Zoom in and out (more labels appear as you zoom in).
             </li>
             <li>
-              <strong>Drag background:</strong> Pan smoothly across all 4 Origin Zones.
+              <strong>Drag background:</strong> Move around across all 4 Origin Zones.
             </li>
             <li>
-              <strong>Click any node:</strong> Isolate its connected family &amp; read its Prefix / Root / Suffix breakdown below.
+              <strong>Click any word:</strong> Focus on its connected family and see its Prefix / Root / Suffix breakdown below.
             </li>
             <li>
-              <strong>Search + Enter:</strong> Type a word or root and press <code>Enter</code> to fly the camera right to it.
+              <strong>Search + Enter:</strong> Type a word or root and press <code>Enter</code> to jump straight to it.
             </li>
           </ul>
         </section>

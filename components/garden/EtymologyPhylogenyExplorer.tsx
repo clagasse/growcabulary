@@ -45,13 +45,20 @@ import {
 interface EtymologyPhylogenyExplorerProps {
   learnedEntries: GardenEntry[];
   allLexiconWords: Word[];
+  initialFocusWord?: string | null;
   onSelectWordDossier: (word: GardenEntry) => void;
   onOpenWordFlashcard?: (word: Word) => void;
   onPracticeOriginFlashcards?: (originFilterKey: string) => void;
 }
 
 type TrunkId = 'latin-romance' | 'hellenic' | 'germanic' | 'global';
-type TrunkFilter = 'all' | TrunkId;
+type LatinSubId = 'latin' | 'french' | 'italian-spanish';
+type TrunkFilter =
+  | 'all'
+  | TrunkId
+  | 'latin-only'
+  | 'french-only'
+  | 'italian-spanish-only';
 
 interface GraphNode extends SimulationNodeDatum {
   id: string;
@@ -59,6 +66,7 @@ interface GraphNode extends SimulationNodeDatum {
   label: string;
   sublabel?: string;
   trunkId: TrunkId;
+  latinSubId?: LatinSubId;
   isLearned: boolean;
   degree: number;
   wordData?: Word;
@@ -87,23 +95,30 @@ interface ZoneMeta {
   color: string;
 }
 
+const ALL_ZONE_IDS: TrunkId[] = [
+  'latin-romance',
+  'hellenic',
+  'germanic',
+  'global',
+];
+
 const ZONE_META: Record<TrunkId, ZoneMeta> = {
   'latin-romance': {
     id: 'latin-romance',
     title: 'Latin & Romance',
     emoji: '🏛️',
-    cx: -360,
+    cx: -370,
     cy: -220,
     fill: 'rgba(220, 252, 231, 0.34)',
-    border: 'rgba(21, 128, 61, 0.25)',
-    badgeBg: 'rgba(236, 253, 245, 0.94)',
+    border: 'rgba(21, 128, 61, 0.28)',
+    badgeBg: 'rgba(236, 253, 245, 0.95)',
     color: '#15803D',
   },
   hellenic: {
     id: 'hellenic',
     title: 'Greek',
     emoji: '🌺',
-    cx: 360,
+    cx: 380,
     cy: -220,
     fill: 'rgba(252, 231, 243, 0.34)',
     border: 'rgba(190, 24, 93, 0.25)',
@@ -114,8 +129,8 @@ const ZONE_META: Record<TrunkId, ZoneMeta> = {
     id: 'germanic',
     title: 'Germanic & Norse',
     emoji: '🌲',
-    cx: -360,
-    cy: 220,
+    cx: -370,
+    cy: 230,
     fill: 'rgba(236, 252, 203, 0.38)',
     border: 'rgba(77, 124, 15, 0.25)',
     badgeBg: 'rgba(247, 254, 231, 0.94)',
@@ -125,8 +140,8 @@ const ZONE_META: Record<TrunkId, ZoneMeta> = {
     id: 'global',
     title: 'World & Eponyms',
     emoji: '🌍',
-    cx: 360,
-    cy: 220,
+    cx: 380,
+    cy: 230,
     fill: 'rgba(254, 243, 199, 0.38)',
     border: 'rgba(180, 83, 9, 0.25)',
     badgeBg: 'rgba(255, 251, 235, 0.94)',
@@ -134,9 +149,61 @@ const ZONE_META: Record<TrunkId, ZoneMeta> = {
   },
 };
 
+const LATIN_SUB_META: Record<
+  LatinSubId,
+  {
+    id: LatinSubId;
+    title: string;
+    emoji: string;
+    dx: number;
+    dy: number;
+    color: string;
+    fill: string;
+    border: string;
+    badgeBg: string;
+  }
+> = {
+  latin: {
+    id: 'latin',
+    title: 'Latin',
+    emoji: '🌿',
+    dx: -75,
+    dy: -10,
+    color: '#15803D',
+    fill: 'rgba(220, 252, 231, 0.2)',
+    border: 'rgba(21, 128, 61, 0.25)',
+    badgeBg: 'rgba(236, 253, 245, 0.95)',
+  },
+  french: {
+    id: 'french',
+    title: 'French',
+    emoji: '🪻',
+    dx: 165,
+    dy: -85,
+    color: '#6D28D9',
+    fill: 'rgba(237, 233, 254, 0.42)',
+    border: 'rgba(124, 58, 237, 0.32)',
+    badgeBg: 'rgba(245, 243, 255, 0.95)',
+  },
+  'italian-spanish': {
+    id: 'italian-spanish',
+    title: 'Italian & Spanish',
+    emoji: '🌷',
+    dx: 165,
+    dy: 85,
+    color: '#C2410C',
+    fill: 'rgba(255, 237, 213, 0.48)',
+    border: 'rgba(234, 88, 12, 0.32)',
+    badgeBg: 'rgba(255, 247, 237, 0.95)',
+  },
+};
+
 const TRUNK_FILTERS: { id: TrunkFilter; label: string; emoji: string }[] = [
-  { id: 'all', label: 'All Origins', emoji: '🌿' },
-  { id: 'latin-romance', label: 'Latin & Romance', emoji: '🏛️' },
+  { id: 'all', label: 'All Origins', emoji: '🧭' },
+  { id: 'latin-romance', label: 'Latin & Romance (All)', emoji: '🏛️' },
+  { id: 'latin-only', label: '↳ Latin', emoji: '🌿' },
+  { id: 'french-only', label: '↳ French', emoji: '🪻' },
+  { id: 'italian-spanish-only', label: '↳ Italian & Spanish', emoji: '🌷' },
   { id: 'hellenic', label: 'Greek', emoji: '🌺' },
   { id: 'germanic', label: 'Germanic & Norse', emoji: '🌲' },
   { id: 'global', label: 'World & Eponyms', emoji: '🌍' },
@@ -146,8 +213,65 @@ function getTrunkIdFromOrigin(origin: string): TrunkId {
   const o = (origin || '').toLowerCase();
   if (/greek|hellen/.test(o)) return 'hellenic';
   if (/latin|french|italian|spanish|portuguese|norman|romance/.test(o)) return 'latin-romance';
-  if (/old english|german|norse|dutch|anglo-saxon|scots/.test(o)) return 'germanic';
+  if (/old english|middle english|english|german|norse|dutch|anglo-saxon|scots|scottish|scandinavian|frankish/.test(o)) {
+    return 'germanic';
+  }
   return 'global';
+}
+
+function getLatinSubId(origin: string): LatinSubId {
+  const o = (origin || '').toLowerCase();
+  if (o.includes('french') || o.includes('norman')) return 'french';
+  if (o.includes('italian') || o.includes('spanish') || o.includes('portuguese')) {
+    return 'italian-spanish';
+  }
+  return 'latin';
+}
+
+function getZoneIdForWord(word: Word, lineage: AncestralLineageInfo): TrunkId {
+  const direct = (word.origin || '').toLowerCase();
+  if (
+    direct.includes('french') ||
+    direct.includes('italian') ||
+    direct.includes('spanish') ||
+    direct.includes('portuguese') ||
+    direct.includes('latin')
+  ) {
+    return 'latin-romance';
+  }
+  if (direct.includes('greek')) return 'hellenic';
+  const ancestral = (lineage.rootOrigin || '').toLowerCase();
+  if (ancestral === 'greek') return 'hellenic';
+  if (
+    direct.includes('old english') ||
+    direct.includes('middle english') ||
+    direct.includes('german') ||
+    direct.includes('norse') ||
+    direct.includes('dutch') ||
+    direct.includes('scandinavian') ||
+    direct.includes('scottish') ||
+    direct.includes('frankish')
+  ) {
+    return 'germanic';
+  }
+  return getTrunkIdFromOrigin(lineage.rootOrigin || word.origin);
+}
+
+function getNodeColor(n: GraphNode): string {
+  if (n.trunkId === 'latin-romance' && n.latinSubId) {
+    return LATIN_SUB_META[n.latinSubId].color;
+  }
+  return ZONE_META[n.trunkId].color;
+}
+
+function getTargetCenter(n: GraphNode, isSingleZone: boolean): { x: number; y: number } {
+  const baseX = isSingleZone ? 0 : ZONE_META[n.trunkId].cx;
+  const baseY = isSingleZone ? 0 : ZONE_META[n.trunkId].cy;
+  if (n.trunkId === 'latin-romance' && n.latinSubId) {
+    const sub = LATIN_SUB_META[n.latinSubId];
+    return { x: baseX + sub.dx, y: baseY + sub.dy };
+  }
+  return { x: baseX, y: baseY };
 }
 
 function getNodeRadius(n: GraphNode): number {
@@ -158,6 +282,7 @@ function getNodeRadius(n: GraphNode): number {
 export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProps> = ({
   learnedEntries,
   allLexiconWords,
+  initialFocusWord = null,
   onSelectWordDossier,
   onOpenWordFlashcard,
   onPracticeOriginFlashcards,
@@ -165,10 +290,31 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
   const [trunkFilter, setTrunkFilter] = useState<TrunkFilter>('all');
   const [onlyConnected, setOnlyConnected] = useState(false);
   const [showUndiscovered, setShowUndiscovered] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialFocusWord || '');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [popupAnchor, setPopupAnchor] = useState<{ left: number; top: number } | null>(null);
+  const [showNetworkHelp, setShowNetworkHelp] = useState(false);
+
+  useEffect(() => {
+    if (initialFocusWord) {
+      setSearchQuery(initialFocusWord);
+      setTrunkFilter('all');
+      setOnlyConnected(false);
+    }
+  }, [initialFocusWord]);
+
+  useEffect(() => {
+    if (!showNetworkHelp) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowNetworkHelp(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showNetworkHelp]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const simRef = useRef<Simulation<GraphNode, GraphLink> | null>(null);
@@ -216,8 +362,19 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
     for (const w of sourceWords) {
       const key = w.word.toLowerCase();
       const lineage = resolveAncestralRootOrigin(w);
-      const trunkId = getTrunkIdFromOrigin(lineage.rootOrigin);
-      if (trunkFilter !== 'all' && trunkId !== trunkFilter) continue;
+      const trunkId = getZoneIdForWord(w, lineage);
+      const latinSubId =
+        trunkId === 'latin-romance' ? getLatinSubId(w.origin) : undefined;
+
+      if (trunkFilter === 'latin-only') {
+        if (trunkId !== 'latin-romance' || latinSubId !== 'latin') continue;
+      } else if (trunkFilter === 'french-only') {
+        if (trunkId !== 'latin-romance' || latinSubId !== 'french') continue;
+      } else if (trunkFilter === 'italian-spanish-only') {
+        if (trunkId !== 'latin-romance' || latinSubId !== 'italian-spanish') continue;
+      } else if (trunkFilter !== 'all' && trunkId !== trunkFilter) {
+        continue;
+      }
 
       const morphemes = extractWordMorphemes(w);
       const substantiveIds = morphemes
@@ -233,6 +390,7 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
         kind: 'word',
         label: w.word,
         trunkId,
+        latinSubId,
         isLearned: learnedMap.has(key),
         degree: 0,
         wordData: w,
@@ -259,12 +417,14 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
       const sampleMorph =
         members[0].morphemes?.find((m) => m.id === rid) || members[0].morphemes?.[0];
       const hubOrigin = sampleMorph?.origin || members[0].lineage?.rootOrigin || 'Latin';
+      const hubTrunkId = getTrunkIdFromOrigin(hubOrigin);
       const hubNode: GraphNode = {
         id: `h:${rid}`,
         kind: 'hub',
         label: sampleMorph?.displayRoot || rid,
         sublabel: sampleMorph?.meaning || '',
-        trunkId: getTrunkIdFromOrigin(hubOrigin),
+        trunkId: hubTrunkId,
+        latinSubId: hubTrunkId === 'latin-romance' ? getLatinSubId(hubOrigin) : undefined,
         isLearned: members.some((m) => m.isLearned),
         degree: members.length,
         hubOrigin,
@@ -395,8 +555,18 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
       germanic: 0,
       global: 0,
     };
+    const latinSubCounts: Record<LatinSubId, number> = {
+      latin: 0,
+      french: 0,
+      'italian-spanish': 0,
+    };
     for (const n of filteredNodes) {
-      if (n.kind === 'word') zoneWordCounts[n.trunkId]++;
+      if (n.kind === 'word') {
+        zoneWordCounts[n.trunkId]++;
+        if (n.trunkId === 'latin-romance' && n.latinSubId) {
+          latinSubCounts[n.latinSubId]++;
+        }
+      }
     }
 
     return {
@@ -407,6 +577,7 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
       prefixNeighbors,
       baseLabelOrder,
       zoneWordCounts,
+      latinSubCounts,
       connectedWordCount: filteredNodes.filter((n) => n.kind === 'word' && n.degree > 0).length,
       standaloneWordCount: filteredNodes.filter((n) => n.kind === 'word' && n.degree === 0).length,
       hubCount: filteredNodes.filter((n) => n.kind === 'hub').length,
@@ -479,10 +650,15 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
     ctx.scale(k, k);
 
     // 0. Draw Labelled Origin Zones behind everything
-    const zoneIdsToDraw: TrunkId[] =
+    const effectiveOuterZone: TrunkId | null =
       curFilter === 'all'
-        ? (['latin-romance', 'hellenic', 'germanic', 'global'] as TrunkId[])
-        : [curFilter];
+        ? null
+        : curFilter === 'latin-only' ||
+          curFilter === 'french-only' ||
+          curFilter === 'italian-spanish-only'
+        ? 'latin-romance'
+        : curFilter;
+    const zoneIdsToDraw: TrunkId[] = effectiveOuterZone ? [effectiveOuterZone] : ALL_ZONE_IDS;
 
     const zoneBoxes: { meta: ZoneMeta; minX: number; minY: number; maxX: number; maxY: number }[] = [];
     for (const zid of zoneIdsToDraw) {
@@ -516,6 +692,69 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
       ctx.roundRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY, 26);
       ctx.fill();
       ctx.stroke();
+    }
+
+    // 0b. Draw subtle nested sub-pockets for French & Italian/Spanish inside Latin & Romance
+    const subBoxes: {
+      sub: (typeof LATIN_SUB_META)[LatinSubId];
+      count: number;
+      minX: number;
+      minY: number;
+      maxX: number;
+      maxY: number;
+    }[] = [];
+    if (
+      zoneIdsToDraw.includes('latin-romance') &&
+      curFilter !== 'latin-only' &&
+      curFilter !== 'french-only' &&
+      curFilter !== 'italian-spanish-only'
+    ) {
+      for (const subId of ['french', 'italian-spanish'] as LatinSubId[]) {
+        const count = gd.latinSubCounts[subId];
+        if (count === 0) continue;
+        let minX = Infinity,
+          maxX = -Infinity,
+          minY = Infinity,
+          maxY = -Infinity;
+        for (const n of gd.nodes) {
+          if (
+            n.kind !== 'word' ||
+            n.trunkId !== 'latin-romance' ||
+            n.latinSubId !== subId ||
+            n.x === undefined ||
+            n.y === undefined
+          ) {
+            continue;
+          }
+          if (n.x < minX) minX = n.x;
+          if (n.x > maxX) maxX = n.x;
+          if (n.y < minY) minY = n.y;
+          if (n.y > maxY) maxY = n.y;
+        }
+        if (!isFinite(minX)) continue;
+        const pad = 26;
+        const sub = LATIN_SUB_META[subId];
+        const sbox = {
+          sub,
+          count,
+          minX: minX - pad,
+          minY: minY - pad - 10,
+          maxX: maxX + pad,
+          maxY: maxY + pad,
+        };
+        subBoxes.push(sbox);
+
+        ctx.save();
+        ctx.fillStyle = sub.fill;
+        ctx.strokeStyle = sub.border;
+        ctx.lineWidth = 1.2 / k;
+        ctx.setLineDash([5 / k, 4 / k]);
+        ctx.beginPath();
+        ctx.roundRect(sbox.minX, sbox.minY, sbox.maxX - sbox.minX, sbox.maxY - sbox.minY, 18);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     const activeFocusId = curHovered || curSelected;
@@ -595,7 +834,7 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
         ctx.strokeStyle = '#B45309';
         ctx.stroke();
       } else {
-        const originCol = ZONE_META[n.trunkId].color;
+        const originCol = getNodeColor(n);
         ctx.beginPath();
         ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
         ctx.fillStyle = n.isLearned ? originCol : '#E2E8F0';
@@ -635,6 +874,28 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
       ctx.textBaseline = 'middle';
       ctx.fillStyle = box.meta.color;
       ctx.fillText(title, clampedX, clampedY - 1);
+    }
+
+    // Nested Romance sub-zone pills (French & Italian/Spanish inside Latin & Romance)
+    for (const sbox of subBoxes) {
+      const sx = ((sbox.minX + sbox.maxX) / 2) * k + tx;
+      const sy = sbox.minY * k + ty + 10;
+      if (sx < 20 || sx > cssW - 20 || sy < 20 || sy > cssH - 20) continue;
+      const label = `${sbox.sub.emoji} ${sbox.sub.title} (${sbox.count})`;
+      ctx.font = '700 10px ui-sans-serif, system-ui, sans-serif';
+      const tw = ctx.measureText(label).width + 14;
+      ctx.fillStyle = sbox.sub.badgeBg;
+      ctx.strokeStyle = sbox.sub.border;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(sx - tw / 2, sy - 9, tw, 18, 9);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = sbox.sub.color;
+      ctx.fillText(label, sx, sy);
     }
 
     const placedBoxes: { x1: number; y1: number; x2: number; y2: number }[] = [];
@@ -770,21 +1031,16 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
     const isSingleZone = trunkFilter !== 'all';
 
     // Initialize positions gently inside target zones so pre-settle converges cleanly in ~110 ticks
-    const zoneOffsets: Record<TrunkId, number> = {
-      'latin-romance': 0,
-      hellenic: 0,
-      germanic: 0,
-      global: 0,
-    };
+    const zoneOffsets: Record<string, number> = {};
     for (const n of graphData.nodes) {
-      const z = ZONE_META[n.trunkId];
-      const baseCx = isSingleZone ? 0 : z.cx;
-      const baseCy = isSingleZone ? 0 : z.cy;
-      const idx = zoneOffsets[n.trunkId]++;
+      const target = getTargetCenter(n, isSingleZone);
+      const bucketKey = n.latinSubId ? `lr:${n.latinSubId}` : n.trunkId;
+      const idx = zoneOffsets[bucketKey] || 0;
+      zoneOffsets[bucketKey] = idx + 1;
       const angle = idx * 2.39996; // golden angle spiral eliminates initial clumping!
-      const rad = 18 + Math.sqrt(idx) * 18;
-      n.x = baseCx + Math.cos(angle) * rad;
-      n.y = baseCy + Math.sin(angle) * rad;
+      const rad = 16 + Math.sqrt(idx) * 16;
+      n.x = target.x + Math.cos(angle) * rad;
+      n.y = target.y + Math.sin(angle) * rad;
     }
 
     const sim = forceSimulation<GraphNode, GraphLink>(graphData.nodes)
@@ -810,14 +1066,14 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
       )
       .force(
         'x',
-        forceX<GraphNode>((d) => (isSingleZone ? 0 : ZONE_META[d.trunkId].cx)).strength(
-          isSingleZone ? 0.06 : 0.14
+        forceX<GraphNode>((d) => getTargetCenter(d, isSingleZone).x).strength(
+          isSingleZone ? 0.08 : 0.14
         )
       )
       .force(
         'y',
-        forceY<GraphNode>((d) => (isSingleZone ? 0 : ZONE_META[d.trunkId].cy)).strength(
-          isSingleZone ? 0.06 : 0.14
+        forceY<GraphNode>((d) => getTargetCenter(d, isSingleZone).y).strength(
+          isSingleZone ? 0.08 : 0.14
         )
       )
       .velocityDecay(0.58)
@@ -1153,6 +1409,16 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
                 </span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => setShowNetworkHelp(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border bg-[#EDF5EB] hover:bg-[#DCECD8] text-emerald-950 border-[#B8D6B3] transition-all shadow-sm"
+              aria-label="Word Network Guide and Explainer"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-emerald-800" />
+              <span>Help &amp; Guide</span>
+            </button>
           </div>
         </div>
 
@@ -1162,6 +1428,14 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
             <span className="inline-flex items-center gap-1 text-emerald-900">
               <span className="w-2.5 h-2.5 rounded-full bg-[#15803D] inline-block" />
               Latin
+            </span>
+            <span className="inline-flex items-center gap-1 text-violet-900">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#6D28D9] inline-block" />
+              French
+            </span>
+            <span className="inline-flex items-center gap-1 text-orange-900">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#C2410C] inline-block" />
+              Italian/Spanish
             </span>
             <span className="inline-flex items-center gap-1 text-rose-900">
               <span className="w-2.5 h-2.5 rounded-full bg-[#BE185D] inline-block" />
@@ -1180,20 +1454,11 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
               Shared Ancient Root
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-emerald-700 font-semibold">
-              {graphData.connectedWordCount} linked · {graphData.standaloneWordCount} standalone ·{' '}
-              {graphData.hubCount} root hubs
-              {learnedEntries.length === 0 && ' · Previewing full lexicon'}
-            </span>
-            <Link
-              href="/help/word-network"
-              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EDF5EB] hover:bg-[#DCECD8] text-emerald-900 border border-[#C6DEC2] text-[10.5px] font-bold transition-colors"
-            >
-              <HelpCircle className="w-3 h-3" />
-              <span>How It Works</span>
-            </Link>
-          </div>
+          <span className="text-emerald-700 font-semibold">
+            {graphData.connectedWordCount} linked · {graphData.standaloneWordCount} standalone ·{' '}
+            {graphData.hubCount} root hubs
+            {learnedEntries.length === 0 && ' · Previewing full lexicon'}
+          </span>
         </div>
       </div>
 
@@ -1454,6 +1719,177 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
           </div>
         )}
       </div>
+
+      {/* In-App Word Network Help & Explainer Modal */}
+      {showNetworkHelp && (
+        <div
+          className="fixed inset-0 z-[95] bg-emerald-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="word-network-help-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowNetworkHelp(false);
+          }}
+        >
+          <div className="journal-card w-full max-w-2xl max-h-[88vh] rounded-3xl overflow-hidden flex flex-col animate-scale-in">
+            <div className="p-4 sm:p-5 border-b border-[#DCE5D5] bg-gradient-to-r from-[#F4F7F0] via-[#FFFDF8] to-[#FCF7EA] flex items-center justify-between gap-3 shrink-0">
+              <div>
+                <span className="specimen-stamp inline-block px-2 py-0.5 text-[9px] bg-[#EDF5EB] text-emerald-900 border-[#96BE90] mb-1">
+                  Word Network Guide
+                </span>
+                <h3
+                  id="word-network-help-title"
+                  className="serif text-xl sm:text-2xl font-bold text-emerald-950"
+                >
+                  How the Word Network Works
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNetworkHelp(false)}
+                className="p-2 rounded-full hover:bg-emerald-100 text-emerald-800 transition-colors"
+                aria-label="Close Word Network guide"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 text-xs sm:text-sm text-emerald-900">
+              <p className="leading-relaxed">
+                The <strong>Word Network</strong> maps your vocabulary as an interactive physics
+                constellation grouped by historical language origin and linked by shared roots and
+                ancient cross-language ancestors.
+              </p>
+
+              {/* Origin Zones */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-black uppercase tracking-widest text-emerald-800">
+                  1. The 4 Origin Zones
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                    <p className="font-black text-emerald-950 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#15803D]" /> 🏛️ Latin &amp; Romance
+                    </p>
+                    <p className="text-emerald-900/90 mt-1">
+                      Classical/Late Latin (🌿 green) with nested sub-clusters for{' '}
+                      <strong className="text-[#6D28D9]">🪻 French</strong> and{' '}
+                      <strong className="text-[#C2410C]">🌷 Italian &amp; Spanish</strong> right
+                      inside the zone.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3">
+                    <p className="font-black text-rose-950 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#BE185D]" /> 🌺 Greek
+                    </p>
+                    <p className="text-rose-900/90 mt-1">
+                      Ancient Greek roots from philosophy, science, rhetoric, and medicine.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-lime-200 bg-lime-50/70 p-3">
+                    <p className="font-black text-lime-950 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#4D7C0F]" /> 🌲 Germanic &amp; Norse
+                    </p>
+                    <p className="text-lime-900/90 mt-1">
+                      Words inherited from Old English, Old Norse, Dutch, and German.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                    <p className="font-black text-amber-950 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#B45309]" /> 🌍 World &amp; Eponyms
+                    </p>
+                    <p className="text-amber-900/90 mt-1">
+                      Global loanwords (Arabic, Hebrew, Tamil, Sanskrit) and historical eponyms.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Connection Types */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-black uppercase tracking-widest text-emerald-800">
+                  2. Nodes &amp; Link Types
+                </h4>
+                <div className="space-y-2 text-xs">
+                  <div className="rounded-xl border border-emerald-200 bg-[#FFFDF8] p-3">
+                    <p className="font-black text-emerald-950 flex items-center gap-2">
+                      <span className="w-5 h-0.5 bg-[#16A34A] inline-block" />
+                      <span>Solid Green Line &amp; Gold Diamond (◆ Root Hub)</span>
+                    </p>
+                    <p className="text-emerald-800 mt-1">
+                      Connects words sharing the exact same root stem (for example, Latin{' '}
+                      <em>facere</em> linking <em>facile</em>, <em>edifice</em>, and{' '}
+                      <em>munificent</em>).
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-purple-200 bg-purple-50/60 p-3">
+                    <p className="font-black text-purple-950 flex items-center gap-2">
+                      <span className="w-5 border-t-2 border-dashed border-[#7C3AED] inline-block" />
+                      <span>Dashed Purple Line — Shared Ancient Root (PIE)</span>
+                    </p>
+                    <p className="text-purple-900 mt-1">
+                      Bridges cross-language cousins descending from the same ~5,000-year-old
+                      Proto-Indo-European root (marked with <code>*</code>), such as{' '}
+                      <code>*bher-</code> uniting Latin <em>referendum</em>, Greek{' '}
+                      <em>dysphoria</em>, and English <em>forbearance</em>.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                    <p className="font-black text-amber-950 flex items-center gap-2">
+                      <span className="w-5 border-t-2 border-dotted border-[#D97706] inline-block" />
+                      <span>Dotted Amber Line — Shared Prefix (on Hover / Click)</span>
+                    </p>
+                    <p className="text-amber-900 mt-1">
+                      Appears when you hover or select a word, highlighting peers sharing a prefix
+                      like <code>anti-</code>, <code>com-/con-</code>, or <code>inter-</code>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Controls & Toggles */}
+              <div className="rounded-2xl border border-[#DCE5D5] bg-[#F7F9F4] p-3.5 space-y-1.5 text-xs">
+                <p className="font-black text-emerald-950">Controls &amp; Tips</p>
+                <ul className="list-disc pl-4 space-y-1 text-emerald-800">
+                  <li>
+                    <strong>Scroll / Zoom buttons:</strong> Zoom in to reveal more labels, or tap{' '}
+                    <strong>Fit</strong> to re-center.
+                  </li>
+                  <li>
+                    <strong>Drag background / nodes:</strong> Pan the canvas or pull a cluster apart
+                    to inspect tight hubs.
+                  </li>
+                  <li>
+                    <strong>Click any node:</strong> Isolate its family, view its Prefix / Root /
+                    Suffix breakdown, open its Dossier, or jump straight into Flashcards.
+                  </li>
+                  <li>
+                    <strong>Full Lexicon vs. Discovered Only:</strong> Toggle{' '}
+                    <strong>Full Lexicon</strong> to preview locked words (pale dots with 🔒) and
+                    see full root families before discovering them.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-[#DCE5D5] bg-[#FAF7EE] flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <Link
+                href="/help/word-network"
+                className="text-xs font-bold text-emerald-800 hover:text-emerald-950 underline underline-offset-2"
+              >
+                Open standalone Word Network Guide page →
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowNetworkHelp(false)}
+                className="px-5 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-colors"
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

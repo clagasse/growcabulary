@@ -90,10 +90,10 @@ export const GROWTH_STAGE_META: Record<
     badgeClass: 'bg-pink-100 text-pink-800 border-pink-200',
   },
   perennial: {
-    label: 'Perennial',
+    label: 'Established',
     emoji: '🌳',
     minReps: 6,
-    description: 'Deeply rooted in long-term memory (30+ day interval).',
+    description: 'Deeply rooted in long-term memory (18–30 day interval).',
     badgeClass: 'bg-teal-900 text-teal-50 border-teal-800',
   },
 };

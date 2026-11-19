@@ -19,34 +19,34 @@ import { HelpFeedbackSupportActions } from '../../components/HelpFeedbackSupport
 export const metadata: Metadata = {
   title: 'Help & Guide',
   description:
-    'Learn how Growcabulary’s difficulty tiers, word progression, spaced repetition, Compost, and Cloud Sync work.',
+    'Learn how Growcabulary’s difficulty levels, word stages, spaced review, Compost, and Cloud Sync work.',
 };
 
 const PROGRESSION_STEPS = [
   {
     stage: 'seed' as const,
-    when: 'Missed word or lapsed review',
-    detail: 'Queued immediately for review so tricky words stay visible.',
+    when: 'Missed word or missed review (2–3 days)',
+    detail: 'Comes back soon so tricky words stay fresh.',
   },
   {
     stage: 'sprout' as const,
-    when: 'First encounter solved (1-day interval)',
-    detail: 'Planted in your Garden as an active Learning word.',
+    when: 'First time solved (3–4 days)',
+    detail: 'Added to your Garden and rests a few days before its first review.',
   },
   {
     stage: 'bud' as const,
-    when: '2+ successful reviews · 3+ day interval',
-    detail: 'Taking root through spaced recall and context practice.',
+    when: '2+ good reviews (6–8 days)',
+    detail: 'Starting to stick as you see and use it again.',
   },
   {
     stage: 'bloom' as const,
-    when: '3+ reviews · 14+ day interval (Mastered)',
-    detail: 'Counts toward Mastered totals—retained across multi-week spacing.',
+    when: '3+ good reviews (10–14 days · Mastered)',
+    detail: 'Counts as Mastered once you remember it across longer breaks.',
   },
   {
     stage: 'perennial' as const,
-    when: '4+ reviews · 30+ day interval (Mastered)',
-    detail: 'Deeply rooted in long-term active vocabulary.',
+    when: '4+ good reviews (18–30 days · Mastered)',
+    detail: 'Well-known word that only pops up occasionally for a quick check-in.',
   },
 ];
 
@@ -84,28 +84,24 @@ export default function HelpPage() {
             </h1>
             <div className="space-y-2.5 text-sm text-emerald-900 leading-relaxed max-w-3xl">
               <p>
-                <strong>Growcabulary.com</strong> is an interactive game system designed to expand
-                your active English vocabulary—with a focus on{' '}
-                <strong>expressive, uncommon, yet contemporary words</strong> you can genuinely use
-                in conversation, writing, and reading.
+                <strong>Growcabulary.com</strong> is a word game for learning{' '}
+                <strong>useful, expressive English words</strong> you can genuinely use in everyday
+                reading, writing, and conversation.
               </p>
               <p className="text-emerald-800">
-                Rather than drilling obscure dictionary trivia or testing passive multiple-choice
-                recognition once, Growcabulary treats your lexicon like a living garden: you{' '}
-                <strong>discover</strong> new words in <strong>Seed Sprout</strong>, practice
-                recognizing and writing with them in <strong>Field Notes</strong> and{' '}
-                <strong>In Your Own Words</strong>, and cultivate long-term retention through
-                spaced-repetition <strong>Flashcards</strong> and etymology exploration in your{' '}
-                <strong>Garden</strong>.
+                Instead of boring flashcards or obscure trivia, Growcabulary treats your vocabulary
+                like a garden: you <strong>find</strong> new words in <strong>Seed Sprout</strong>,
+                practice spotting and writing with them in <strong>Field Notes</strong> and{' '}
+                <strong>In Your Own Words</strong>, and keep them fresh with{' '}
+                <strong>Flashcards</strong> and word-root maps in your <strong>Garden</strong>.
               </p>
             </div>
             <div className="rounded-2xl border border-amber-200 bg-amber-50/75 p-4 text-xs sm:text-sm text-amber-950 leading-relaxed max-w-3xl">
-              <strong className="font-black">Expect to use hints at first:</strong> Growcabulary&apos;s
-              word games are intentionally challenging—you aren&apos;t expected to know every word
-              cold. Using <strong>Reveal Letter</strong>, <strong>Letter Tiles</strong>,{' '}
-              <strong>Etymology</strong>, or <strong>Narrow Down</strong> clues to work out
-              unfamiliar words is a core part of the learning process; each encounter plants the
-              word in your Garden so it sticks over future reviews.
+              <strong className="font-black">Expect to use hints at first:</strong> The games are
+              meant to be challenging—you aren&apos;t expected to know every word right away. Using{' '}
+              <strong>Reveal Letter</strong>, <strong>Letter Tiles</strong>,{' '}
+              <strong>Word Origin</strong>, or <strong>Narrow Down</strong> clues is part of how
+              you learn. Every word you play gets saved to your Garden so it sticks next time.
             </div>
           </div>
         </div>
@@ -148,9 +144,9 @@ export default function HelpPage() {
             </h2>
           </div>
           <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
-            Solving a word once only plants it. True mastery requires recalling it accurately over
-            time. As a word&apos;s spaced-repetition interval grows, it advances through 5 botanical
-            stages and earns points toward your overall{' '}
+            Solving a word once only plants it. To master a word, you need to remember it over
+            time. As you review a word successfully across longer breaks, it grows through 5 stages
+            and earns points toward your{' '}
             <Link href="/ranks" className="font-bold underline text-emerald-950">
               Botanical Rank
             </Link>{' '}
@@ -180,8 +176,8 @@ export default function HelpPage() {
           </div>
 
           <p className="text-[11px] text-emerald-700 font-medium">
-            Each word&apos;s dossier also tracks <strong>Context Coverage</strong>—whether you
-            encountered it in Seed Sprout, Field Notes, In Your Own Words, and Flashcards.
+            Each word&apos;s detail card also shows which modes you&apos;ve practiced it in: Seed
+            Sprout, Field Notes, In Your Own Words, and Flashcards.
           </p>
         </section>
 
@@ -195,11 +191,11 @@ export default function HelpPage() {
           </div>
           <div className="rounded-2xl border border-amber-200 bg-amber-50/55 p-4 sm:p-5 space-y-3">
             <p className="text-xs sm:text-sm text-emerald-950 leading-relaxed">
-              Toggle between <strong>🌿 Zen Mode</strong> (untimed learning) and{' '}
-              <strong>🏆 Scored Mode</strong> on the main menu to test your recall speed in{' '}
+              Switch between <strong>🌿 Zen Mode</strong> (untimed, relaxed) and{' '}
+              <strong>🏆 Scored Mode</strong> on the main menu to test your speed in{' '}
               <strong>Seed Sprout</strong> and <strong>Field Notes</strong>. In Scored Field Notes,
-              rounds draw from the <strong>entire lexicon</strong> rather than only discovered words
-              to keep the challenge sharp.
+              rounds pull from the <strong>full word list</strong> (not just words you&apos;ve
+              already learned) to keep things challenging.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-xl bg-[#FFFDF8] border border-amber-200/80 p-3 space-y-1">
@@ -242,46 +238,44 @@ export default function HelpPage() {
           <div className="flex items-center gap-2">
             <Droplets className="w-5 h-5 text-sky-700" />
             <h2 className="serif text-xl sm:text-2xl font-bold text-emerald-950">
-              Why Spaced Repetition &amp; Review Matter
+              How Spaced Review (&ldquo;Watering&rdquo;) Works
             </h2>
           </div>
           <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4 sm:p-5 space-y-3">
             <p className="text-xs sm:text-sm text-emerald-950 leading-relaxed">
-              Expressive words fade quickly if you only cram them once. Growcabulary uses{' '}
-              <strong>spaced repetition</strong> so you review each word right before you would
-              naturally forget it:
+              New words fade quickly if you only see them once. Growcabulary brings each word back
+              right before you&apos;d forget it—with at least a <strong>3-day break</strong> after
+              you first learn a word:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-xl bg-[#FFFDF8] border border-sky-200/80 p-3">
                 <p className="text-xs font-black text-amber-900 mb-1">Again (Missed)</p>
                 <p className="text-xs text-emerald-800 leading-relaxed">
-                  Resets the interval to 1 day and marks the word due right away so you re-anchor it
-                  soon.
+                  Resets the word to Seed and brings it back in 2 days so you can lock it in.
                 </p>
               </div>
               <div className="rounded-xl bg-[#FFFDF8] border border-sky-200/80 p-3">
-                <p className="text-xs font-black text-sky-900 mb-1">Good (Clean / Assisted)</p>
+                <p className="text-xs font-black text-sky-900 mb-1">Good</p>
                 <p className="text-xs text-emerald-800 leading-relaxed">
-                  Expands the review gap step by step (1d → 3d → 7d → ~2.5×) once the word is due.
+                  Gradually spaces out your next review (3d → 6d → 10d → 18–30d) when due.
                 </p>
               </div>
               <div className="rounded-xl bg-[#FFFDF8] border border-sky-200/80 p-3">
-                <p className="text-xs font-black text-emerald-900 mb-1">Easy (Instant Recall)</p>
+                <p className="text-xs font-black text-emerald-900 mb-1">Easy</p>
                 <p className="text-xs text-emerald-800 leading-relaxed">
-                  Pushes intervals out faster (1d → 4d → 8d → boosted ~2.5×), keeping your queue
-                  focused on harder words.
+                  Spaces reviews out a bit faster (4d → 8d → 14d → 21–30d) so you spend more time
+                  on harder words.
                 </p>
               </div>
             </div>
             <p className="text-xs text-emerald-800 leading-relaxed">
-              Practicing a word early before it is due still refreshes your{' '}
-              <strong>Context Coverage</strong>, while interval progression waits until the word is
-              actually due (preventing accidental same-day inflation).
+              You can practice any word early whenever you like—its growth stage only advances when
+              the word is actually due, so you can&apos;t accidentally level it up twice in one day.
             </p>
           </div>
         </section>
 
-        {/* 4. Garden Tools */}
+        {/* 5. Garden Tools */}
         <section className="space-y-3">
           <div className="flex items-center gap-2">
             <Flower2 className="w-5 h-5 text-emerald-800" />
@@ -291,20 +285,29 @@ export default function HelpPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="journal-subcard rounded-2xl p-4 space-y-1.5">
-              <div className="flex items-center gap-2 font-black text-sm text-emerald-950">
-                <Sparkles className="w-4 h-4 text-emerald-700" />
-                <span>My Words &amp; Hide Words</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-black text-sm text-emerald-950">
+                  <Sparkles className="w-4 h-4 text-emerald-700" />
+                  <span>Specimens, Browse Words &amp; Flashcards</span>
+                </div>
+                <Link
+                  href="/help/garden"
+                  className="text-[11px] font-black text-emerald-800 hover:text-emerald-950 underline"
+                >
+                  Full Guide →
+                </Link>
               </div>
               <p className="text-xs text-emerald-800 leading-relaxed">
-                Search and filter your collection by Difficulty, Topic, or Growth Stage. Toggle{' '}
-                <strong>Hide Words</strong> to mask headwords and self-test from definitions.
+                See your words as vintage botanical illustrations, click any faded specimen to
+                review it on a flashcard, browse definitions with <strong>Hide Words</strong>, and
+                practice with flashcards.
               </p>
             </div>
             <div className="journal-subcard rounded-2xl p-4 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 font-black text-sm text-emerald-950">
                   <Network className="w-4 h-4 text-emerald-700" />
-                  <span>Word Network</span>
+                  <span>Root Network</span>
                 </div>
                 <Link
                   href="/help/word-network"
@@ -314,14 +317,15 @@ export default function HelpPage() {
                 </Link>
               </div>
               <p className="text-xs text-emerald-800 leading-relaxed">
-                Explore interactive origin zones, shared root hubs, and Shared Ancient Roots
-                connecting Latin, Greek, and Germanic cognates.
+                Explore an interactive map grouped by language origin (with French and Italian &amp;
+                Spanish inside Latin &amp; Romance), shared word roots, and ancient roots shared
+                across languages.
               </p>
             </div>
           </div>
         </section>
 
-        {/* 5. Prominent Dedicated Cards: Compost & Account / Cloud Sync */}
+        {/* 6. Prominent Dedicated Cards: Compost & Account / Cloud Sync */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Compost Section */}
           <section className="rounded-2xl border-2 border-stone-300 bg-[#F8F6EE] p-5 space-y-2.5">
@@ -335,13 +339,12 @@ export default function HelpPage() {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-stone-800 leading-relaxed">
-              Already know a word well? Click <strong>Compost 🍂</strong> in any game, dossier, or
-              flashcard to exclude it from future Seed Sprout rounds, Field Notes, In Your Own
-              Words, and Flashcard reviews.
+              Already know a word well? Click <strong>Compost 🍂</strong> in any game, word card,
+              or flashcard to hide it from future rounds and reviews.
             </p>
             <p className="text-xs text-stone-700 leading-relaxed">
-              Composted words do not count against deck mastery totals and can be restored anytime
-              under <strong>Garden → My Words → Compost</strong>.
+              Composted words don&apos;t count against your mastery totals and can be restored
+              anytime under <strong>Garden → Browse Words → Compost</strong>.
             </p>
           </section>
 

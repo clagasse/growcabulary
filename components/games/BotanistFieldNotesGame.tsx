@@ -11,6 +11,7 @@ import {
 import { getFieldNotePassage } from '../../utils/fieldQuotes';
 import { evaluateFieldNoteChoice, FieldNoteFitTier } from '../../utils/fieldAlternatives';
 import { SpeakWordButton, speakWord } from '../SpeakWordButton';
+import { BotanicalPlateSpecimen } from '../BotanicalPlateSpecimen';
 import {
   DECAY_WINDOW_SECONDS,
   LETTER_HINT_PENALTY,
@@ -794,7 +795,7 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
 
       {/* Post-Verification Full Dossier Reveal */}
       {isEntryComplete && (
-        <div className="journal-subcard p-5 rounded-2xl mb-6 space-y-3 animate-fade-in">
+        <div className="relative overflow-hidden journal-subcard p-5 rounded-2xl mb-6 space-y-3 animate-fade-in">
           {acceptedMatch && acceptedMatch.tier !== 'exact' && (
             <div
               className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold flex flex-wrap items-center justify-between gap-2 ${
@@ -868,6 +869,10 @@ export const BotanistFieldNotesGame: React.FC<BotanistFieldNotesGameProps> = ({
               </button>
             )}
           </div>
+          <BotanicalPlateSpecimen
+            word={currentWord.word}
+            variant="reveal"
+          />
         </div>
       )}
 

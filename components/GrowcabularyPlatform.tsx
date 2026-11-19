@@ -35,6 +35,7 @@ import {
   createGardenEntry,
   applySpacedRepetition,
   outcomeToQuality,
+  formatNextReviewLabel,
 } from '../utils/srs';
 import {
   evaluateWordGuess,
@@ -67,6 +68,7 @@ import {
 import { OnboardingTutorialModal } from './OnboardingTutorialModal';
 import { FeedbackModal, SUPPORT_URL } from './FeedbackModal';
 import { SpeakWordButton, speakWord } from './SpeakWordButton';
+import { BotanicalPlateSpecimen } from './BotanicalPlateSpecimen';
 import { createClient, isSupabaseConfigured, canAccessCurator } from '../utils/supabase/client';
 import {
   Droplets,
@@ -81,6 +83,8 @@ import {
   MessageSquare,
   Coffee,
   Star,
+  Menu,
+  X,
 } from 'lucide-react';
 
 function getLocalDateKey(date: Date = new Date()): string {
@@ -166,8 +170,10 @@ export const GrowcabularyPlatform: React.FC = () => {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showMobileMainMenu, setShowMobileMainMenu] = useState(false);
   const [showGarden, setShowGarden] = useState(false);
   const [conservatoryInitialMode, setConservatoryInitialMode] = useState<'grid' | 'flashcards'>('grid');
+  const [isPlantWateringRound, setIsPlantWateringRound] = useState(false);
   const [selectedGardenWord, setSelectedGardenWord] = useState<GardenEntry | null>(null);
   const [showRoundResult, setShowRoundResult] = useState(false);
   const [roundResults, setRoundResults] = useState<RoundEntryResult[]>([]);
@@ -180,6 +186,15 @@ export const GrowcabularyPlatform: React.FC = () => {
   }>({ show: false, title: '', message: '', action: () => {} });
 
   // Hydrate from localStorage on client mount
+  useEffect(() => {
+    if (!showMobileMainMenu) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowMobileMainMenu(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [showMobileMainMenu]);
+
   useEffect(() => {
     try {
       const savedSeed = localStorage.getItem('growcabulary_selected_seed');
@@ -988,6 +1003,7 @@ export const GrowcabularyPlatform: React.FC = () => {
     setRoundScore(0);
     setRoundCleanStreak(0);
     setIsNewBestRound(false);
+    setIsPlantWateringRound(false);
     const activeMode = overrideMode || selectedMode;
     const effectiveTopic =
       topicOverride !== undefined
@@ -1217,6 +1233,37 @@ export const GrowcabularyPlatform: React.FC = () => {
   const launchWateringSession = () => {
     setConservatoryInitialMode('flashcards');
     setShowGarden(true);
+  };
+
+  const launchGardenWateringRound = (
+    entries: GardenEntry[],
+    mode: 'field-notes' | 'own-words' | 'seed-sprout'
+  ) => {
+    if (entries.length === 0) return;
+    const shuffled = [...entries].sort(() => Math.random() - 0.5);
+    const chosen = shuffled
+      .slice(0, Math.min(WORDS_PER_ROUND, shuffled.length))
+      .map(
+        (entry) =>
+          lexiconWords.find((w) => w.word.toLowerCase() === entry.word.toLowerCase()) || entry
+      );
+    if (chosen.length === 0) return;
+
+    setRoundScore(0);
+    setRoundCleanStreak(0);
+    setIsNewBestRound(false);
+    setShowRoundResult(false);
+    setIsPlantWateringRound(true);
+    setSelectedMode(mode);
+    setSelectedSeed('all');
+    setActiveTopicFilter('all');
+    setDeckNotice(null);
+    setRemainingWords(chosen);
+    setCurrentWordIndex(0);
+    setRoundResults([]);
+    resetWordState(chosen[0]);
+    setShowGarden(false);
+    setShowWelcome(false);
   };
 
   const commitSeedSproutOutcome = (outcome: RecallOutcome) => {
@@ -1608,8 +1655,37 @@ export const GrowcabularyPlatform: React.FC = () => {
       {showWelcome ? (
         <div className="min-h-screen flex items-center justify-center p-3 sm:p-6 w-full overflow-y-auto">
           <div className="max-w-5xl w-full journal-card rounded-2xl sm:rounded-3xl p-5 sm:p-8 relative overflow-hidden my-auto">
-            {/* Top Bar: Rank, Mastery & Cloud Account Link */}
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-6 pb-4 border-b border-[#E5ECE0]">
+            {/* Top Bar — Mobile Compact (< 640px): single rank pill + one Menu button */}
+            <div className="flex sm:hidden items-center justify-between gap-2 mb-4 pb-3 border-b border-[#E5ECE0]">
+              <Link
+                href="/ranks"
+                className="inline-flex items-center gap-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm transition-colors max-w-[65%] truncate"
+                title="View all Botanical Ranks and your overall progression"
+              >
+                <span className="truncate">
+                  {userRank.emoji} {userRank.title}
+                </span>
+                {dailyStreak > 0 && (
+                  <span className="text-[10px] font-black text-amber-200 shrink-0">
+                    · 🔥 {dailyStreak}d
+                  </span>
+                )}
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setShowMobileMainMenu(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FAF7EE] hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-black shadow-sm transition-colors shrink-0"
+                aria-label="Open main menu"
+                aria-expanded={showMobileMainMenu}
+              >
+                <Menu className="w-4 h-4 text-emerald-800" />
+                <span>Menu</span>
+              </button>
+            </div>
+
+            {/* Top Bar — Desktop (>= 640px): Rank, Mastery & Cloud Account Link */}
+            <div className="hidden sm:flex flex-wrap items-center justify-between gap-2 mb-6 pb-4 border-b border-[#E5ECE0]">
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href="/ranks"
@@ -2176,19 +2252,19 @@ export const GrowcabularyPlatform: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-sm font-medium">
+              <div className="flex items-center gap-1.5 sm:gap-3 text-[10px] sm:text-sm font-medium">
                 {dailyStreak > 0 && (
-                  <div className="text-orange-700 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-200 font-black flex items-center gap-1">
+                  <div className="text-orange-700 bg-orange-50 px-2 sm:px-2.5 py-1 rounded-full border border-orange-200 font-black flex items-center gap-1">
                     🔥 {dailyStreak}d
                   </div>
                 )}
-                <div className="text-emerald-900 bg-[#F4F7F0] px-3 py-1 rounded-full border border-[#DCE5D5] text-xs font-bold">
+                <div className="hidden sm:block text-emerald-900 bg-[#F4F7F0] px-3 py-1 rounded-full border border-[#DCE5D5] text-xs font-bold">
                   <span className="font-black">{dailyWordsToday}</span> today
                 </div>
                 <button
                   type="button"
                   onClick={openConservatoryGrid}
-                  className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-full text-xs font-bold shadow-sm"
+                  className="px-2.5 sm:px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-full text-xs font-bold shadow-sm"
                 >
                   Garden 🌸
                 </button>
@@ -2263,14 +2339,21 @@ export const GrowcabularyPlatform: React.FC = () => {
             ) : currentWord ? (
               /* MODE 1: UNTIMED SEED SPROUT WITH MANUAL HINTS & COMPOST */
               <div className="w-full journal-card rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 relative overflow-hidden flex flex-col shrink-0">
+                <BotanicalPlateSpecimen
+                  word={currentWord.word}
+                  variant="game-bg"
+                  showCaption={isRoundOver}
+                  className="order-last mt-3"
+                />
+
                 <div
-                  className="absolute top-0 left-0 h-1 bg-emerald-600 transition-all duration-500"
+                  className="absolute top-0 left-0 h-1 bg-emerald-600 transition-all duration-500 z-10"
                   style={{
                     width: `${(currentWordIndex / Math.max(1, remainingWords.length)) * 100}%`,
                   }}
                 />
 
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-6 pb-4 border-b border-[#DCE5D5]">
+                <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 mb-6 pb-4 border-b border-[#DCE5D5]">
                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 bg-[#EDF5EB] px-3 py-1 rounded-full border border-[#C6DEC2]">
                     🌱 Seed Sprout • Word {currentWordIndex + 1} of {remainingWords.length}
                   </span>
@@ -2359,7 +2442,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                 })()}
 
                 {/* Individual Letter Tiles */}
-                <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 mb-7">
+                <div className="relative z-10 flex flex-wrap justify-center items-center gap-1 sm:gap-2 mb-7">
                   {currentWord.word.split('').map((char, i) => {
                     if (isSeparatorChar(char)) {
                       return (
@@ -2401,8 +2484,8 @@ export const GrowcabularyPlatform: React.FC = () => {
                   })}
                 </div>
 
-                <div className="space-y-5">
-                  <div className="journal-subcard p-4 sm:p-6 rounded-2xl">
+                <div className="relative z-10 space-y-5">
+                  <div className="journal-subcard !bg-[#F8F6EE]/78 p-4 sm:p-6 rounded-2xl">
                     <div className="flex items-center gap-2 mb-2.5">
                       <span className="bg-emerald-800 text-white text-[9px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-tighter">
                         {currentWord.form}
@@ -2419,7 +2502,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                         {currentWord.definition2}
                       </p>
                     )}
-                    <div className="field-quote p-3.5 rounded-xl">
+                    <div className="field-quote !bg-[#F7F3E8]/78 p-3.5 rounded-xl">
                       <p className="text-[10px] sm:text-xs font-black text-emerald-700 uppercase tracking-wider mb-1">
                         Example usage
                       </p>
@@ -2651,6 +2734,7 @@ export const GrowcabularyPlatform: React.FC = () => {
           onToggleFavorite={(wordObj) => toggleFavoriteWord(wordObj)}
           onCompostWord={(wordObj) => compostWord(wordObj)}
           onRestoreFromCompost={(wordName) => restoreFromCompost(wordName)}
+          onWaterClusterWithMode={launchGardenWateringRound}
         />
       )}
 
@@ -2658,8 +2742,8 @@ export const GrowcabularyPlatform: React.FC = () => {
       {selectedGardenWord && (
         <div className="fixed inset-0 z-[100] bg-emerald-950/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="journal-card w-full max-w-lg rounded-3xl overflow-hidden animate-scale-in max-h-[90vh] overflow-y-auto">
-            <div className="p-6 sm:p-8">
-              <div className="flex justify-between items-start mb-6">
+            <div className="relative overflow-hidden p-6 sm:p-8">
+              <div className="relative z-10 flex justify-between items-start mb-6">
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-1.5">
                     {(() => {
@@ -2743,8 +2827,8 @@ export const GrowcabularyPlatform: React.FC = () => {
                 </button>
               </div>
 
-              <div className="space-y-5">
-                <div className="journal-subcard p-4 rounded-2xl">
+              <div className="relative z-10 space-y-5">
+                <div className="journal-subcard !bg-[#F8F6EE]/78 p-4 rounded-2xl">
                   <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5">
                     Primary Definition
                   </p>
@@ -2758,7 +2842,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                   )}
                 </div>
 
-                <div className="field-quote p-4 rounded-2xl">
+                <div className="field-quote !bg-[#F7F3E8]/78 p-4 rounded-2xl">
                   <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5">
                     Example usage
                   </p>
@@ -2779,7 +2863,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="journal-subcard p-3 rounded-2xl">
+                  <div className="journal-subcard !bg-[#F8F6EE]/78 p-3 rounded-2xl">
                     <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">
                       Origin
                     </p>
@@ -2792,7 +2876,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  <div className="journal-subcard p-3 rounded-2xl">
+                  <div className="journal-subcard !bg-[#F8F6EE]/78 p-3 rounded-2xl">
                     <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">
                       Review Cadence
                     </p>
@@ -2801,22 +2885,18 @@ export const GrowcabularyPlatform: React.FC = () => {
                         {selectedGardenWord.isComposted ? '🍂' : '💧'}
                       </span>
                       <span className="text-xs sm:text-sm font-bold text-emerald-900">
-                        {selectedGardenWord.isComposted
-                          ? 'Composted (Skipped)'
-                          : selectedGardenWord.dateLearned === 'Undiscovered'
-                          ? 'Not yet learned'
-                          : isWordThirsty(selectedGardenWord)
-                          ? 'Due now'
-                          : `${selectedGardenWord.intervalDays || 1}d interval • ${
-                              selectedGardenWord.repetitionCount || 0
-                            } reps`}
+                        {formatNextReviewLabel(selectedGardenWord)}
+                        {!selectedGardenWord.isComposted &&
+                          selectedGardenWord.dateLearned !== 'Undiscovered' &&
+                          !isWordThirsty(selectedGardenWord) &&
+                          ` • ${selectedGardenWord.repetitionCount || 0} reps`}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {!selectedGardenWord.isComposted && (
-                  <div className="journal-subcard p-3 rounded-2xl">
+                  <div className="journal-subcard !bg-[#F8F6EE]/78 p-3 rounded-2xl">
                     <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-2">
                       Context Coverage
                     </p>
@@ -2871,7 +2951,13 @@ export const GrowcabularyPlatform: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-col sm:flex-row gap-2.5">
+              <BotanicalPlateSpecimen
+                word={selectedGardenWord.word}
+                variant="dossier"
+                className="mt-3"
+              />
+
+              <div className="relative z-10 mt-5 flex flex-col sm:flex-row gap-2.5">
                 {selectedGardenWord.isComposted ? (
                   <button
                     type="button"
@@ -2899,6 +2985,190 @@ export const GrowcabularyPlatform: React.FC = () => {
                 >
                   Close
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Main Menu Drawer/Sheet */}
+      {showMobileMainMenu && (
+        <div
+          className="fixed inset-0 z-[75] bg-emerald-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowMobileMainMenu(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Main Menu"
+        >
+          <div
+            className="journal-card w-full max-w-sm rounded-3xl overflow-hidden animate-scale-in max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-[#DCE5D5] bg-[#F8F6EE] flex items-center justify-between gap-2 shrink-0">
+              <div>
+                <h2 className="serif text-xl font-bold text-emerald-900">🌿 Menu</h2>
+                <p className="text-[11px] font-bold text-emerald-700">
+                  {userRank.emoji} {userRank.title}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMobileMainMenu(false)}
+                className="p-2 rounded-full text-emerald-800 hover:bg-emerald-100 transition-colors"
+                aria-label="Close Menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4 overflow-y-auto">
+              {/* Compact Progress Stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-[#EDF5EB] border border-[#C6DEC2] p-2.5 text-center">
+                  <div className="text-sm font-black text-emerald-950">🌳 {masteredTotal}</div>
+                  <div className="text-[10px] font-bold text-emerald-800">Mastered</div>
+                </div>
+                <div className="rounded-xl bg-[#FAF7EE] border border-[#DCE5D5] p-2.5 text-center">
+                  <div className="text-sm font-black text-emerald-950">🌸 {activeGardenList.length}</div>
+                  <div className="text-[10px] font-bold text-emerald-800">Garden</div>
+                </div>
+                <div className="rounded-xl bg-orange-50 border border-orange-200 p-2.5 text-center">
+                  <div className="text-sm font-black text-orange-800">🔥 {dailyStreak}d</div>
+                  <div className="text-[10px] font-bold text-orange-700">Streak</div>
+                </div>
+              </div>
+
+              {/* Navigation & Study Tools */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMobileMainMenu(false);
+                    openConservatoryGrid();
+                  }}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[#EDF5EB] hover:bg-emerald-100 text-emerald-950 border border-[#C6DEC2] text-sm font-bold transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Flower2 className="w-4 h-4 text-emerald-700" />
+                    <span>Open Garden</span>
+                  </span>
+                  <span className="text-xs font-black text-emerald-800">
+                    {activeGardenList.length}
+                  </span>
+                </button>
+
+                <Link
+                  href="/ranks"
+                  onClick={() => setShowMobileMainMenu(false)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[#FAF7EE] hover:bg-emerald-50 text-emerald-950 border border-[#DCE5D5] text-sm font-bold transition-colors"
+                >
+                  <span>{userRank.emoji} Botanical Ranks &amp; Progress</span>
+                  <span className="text-xs text-emerald-700">→</span>
+                </Link>
+
+                {canAccessCurator(cloudUser?.email) && (
+                  <Link
+                    href="/curator"
+                    onClick={() => setShowMobileMainMenu(false)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-sm font-bold transition-colors"
+                  >
+                    <span>🛠️ Curator Studio</span>
+                    <span className="text-xs text-amber-800">→</span>
+                  </Link>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMobileMainMenu(false);
+                    setShowMenu(true);
+                  }}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[#FAF7EE] hover:bg-emerald-50 text-emerald-950 border border-[#DCE5D5] text-sm font-bold transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Settings className="w-4 h-4 text-emerald-700" />
+                    <span>Settings &amp; Data</span>
+                  </span>
+                  <span className="text-xs text-emerald-700">→</span>
+                </button>
+              </div>
+
+              {/* Guides & Help */}
+              <div className="pt-2 border-t border-[#E5ECE0]">
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-2">
+                  Guides &amp; Help
+                </p>
+                <div className="grid grid-cols-1 gap-1.5">
+                  <Link
+                    href="/help"
+                    onClick={() => setShowMobileMainMenu(false)}
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
+                  >
+                    <span>📖 Help &amp; Game Rules</span>
+                    <span className="text-emerald-700">→</span>
+                  </Link>
+                  <Link
+                    href="/help/garden"
+                    onClick={() => setShowMobileMainMenu(false)}
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
+                  >
+                    <span>🌸 Garden Guide</span>
+                    <span className="text-emerald-700">→</span>
+                  </Link>
+                  <Link
+                    href="/help/word-network"
+                    onClick={() => setShowMobileMainMenu(false)}
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors"
+                  >
+                    <span>🌿 Word Network Guide</span>
+                    <span className="text-emerald-700">→</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMobileMainMenu(false);
+                      setShowTutorial(true);
+                    }}
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white hover:bg-emerald-50 text-emerald-900 border border-[#DCE5D5] text-xs font-bold transition-colors text-left"
+                  >
+                    <span>🧭 Replay Intro Tutorial</span>
+                    <span className="text-emerald-700">→</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Cloud Sync / Account */}
+              <div className="pt-2 border-t border-[#E5ECE0]">
+                {cloudUser ? (
+                  <div className="flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-emerald-900 text-white text-xs font-bold shadow-sm">
+                    <span className="flex items-center gap-2 truncate">
+                      <UserCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+                      <span className="truncate">{cloudUser.name}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const supabase = createClient();
+                        await supabase.auth.signOut();
+                        setCloudUser(null);
+                        setShowMobileMainMenu(false);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-800 hover:bg-red-700 text-white text-[11px] font-bold transition-colors shrink-0"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setShowMobileMainMenu(false)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-900 hover:bg-emerald-950 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-colors"
+                  >
+                    <UserCheck className="w-4 h-4" />
+                    <span>Cloud Sync / Sign In</span>
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -3199,19 +3469,39 @@ export const GrowcabularyPlatform: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-2.5">
+              {isPlantWateringRound && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRoundResult(false);
+                    setIsPlantWateringRound(false);
+                    setShowWelcome(true);
+                    openConservatoryGrid();
+                  }}
+                  className="w-full py-3.5 bg-emerald-800 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-900 transition-all text-base flex items-center justify-center gap-2"
+                >
+                  <Flower2 className="w-4 h-4" />
+                  <span>Return to Garden Specimens</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   setShowRoundResult(false);
+                  setIsPlantWateringRound(false);
                   if (selectedSeed) {
                     initSeedBank(selectedSeed, selectedMode, activeTopicFilter);
                   } else if (selectedMode === 'field-notes' || selectedMode === 'own-words') {
                     initSeedBank('all', selectedMode, 'all');
                   }
                 }}
-                className="w-full py-3.5 bg-emerald-800 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-900 transition-all text-base"
+                className={
+                  isPlantWateringRound
+                    ? 'w-full py-3 bg-[#EDF5EB] text-emerald-900 border border-[#C6DEC2] rounded-2xl font-bold hover:bg-emerald-100 transition-all text-sm'
+                    : 'w-full py-3.5 bg-emerald-800 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-900 transition-all text-base'
+                }
               >
-                Play Again
+                {isPlantWateringRound ? 'Play a Full Round' : 'Play Again'}
               </button>
               {thirstyCount > 0 && (
                 <button

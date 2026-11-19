@@ -15,6 +15,7 @@ import {
   getTopicMeta,
 } from '../../constants';
 import { SpeakWordButton, speakWord } from '../SpeakWordButton';
+import { BotanicalPlateSpecimen } from '../BotanicalPlateSpecimen';
 import {
   Feather,
   Sparkles,
@@ -339,13 +340,21 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
   });
 
   return (
-    <div className="w-full journal-card rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 relative overflow-hidden">
+    <div className="w-full journal-card rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 relative overflow-hidden flex flex-col">
+      <BotanicalPlateSpecimen
+        word={currentWord.word}
+        variant="game-bg"
+        showCaption
+        className="order-last mt-3"
+      />
+
       {/* Top Progress Bar */}
       <div
-        className="absolute top-0 left-0 h-1 bg-purple-700 transition-all duration-500 rounded-tl-2xl"
+        className="absolute top-0 left-0 h-1 bg-purple-700 transition-all duration-500 rounded-tl-2xl z-10"
         style={{ width: `${(currentIdx / roundWords.length) * 100}%` }}
       />
 
+      <div className="relative z-10">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-[#DCE5D5]">
         <div className="flex flex-wrap items-center gap-2">
@@ -417,7 +426,7 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
       </div>
 
       {/* Target Specimen Prompt Card */}
-      <div className="journal-subcard p-4 sm:p-6 rounded-2xl mb-5 border-2 border-[#DCE5D5]">
+      <div className="bg-[#FFFDF8]/75 backdrop-blur-[1px] p-4 sm:p-6 rounded-2xl mb-5 border-2 border-[#DCE5D5] shadow-xs">
         <div className="flex flex-wrap items-center gap-1.5 mb-3">
           <span className="bg-emerald-800 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
             {currentWord.form}
@@ -537,7 +546,7 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
             }
           }}
           placeholder={`Use "${currentWord.word}" in an original sentence...`}
-          className="w-full p-3.5 rounded-xl bg-[#FAF7EE] border-2 border-[#C8D8C2] focus:border-purple-700 focus:bg-[#FFFDF8] disabled:opacity-80 outline-none serif text-sm sm:text-base text-emerald-950 resize-none transition-colors"
+          className="w-full p-3.5 rounded-xl bg-[#FAF7EE]/85 border-2 border-[#C8D8C2] focus:border-purple-700 focus:bg-[#FFFDF8]/95 disabled:opacity-80 outline-none serif text-sm sm:text-base text-emerald-950 resize-none transition-colors"
         />
 
         {/* Zero-Token Client Gatekeeper Status Pills */}
@@ -581,7 +590,7 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
       {/* Evaluation Card */}
       {evalResult && (
         <div
-          className={`p-4 sm:p-5 rounded-2xl mb-5 border-2 space-y-3 animate-fade-in ${
+          className={`relative overflow-hidden p-4 sm:p-5 rounded-2xl mb-5 border-2 space-y-3 animate-fade-in ${
             evalResult.verdict === 'clean'
               ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
               : evalResult.verdict === 'assisted'
@@ -690,6 +699,7 @@ export const InYourOwnWordsGame: React.FC<InYourOwnWordsPlaceholderProps> = ({
         <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">S</kbd> Pronounce ·{' '}
         <kbd className="px-1 py-0.5 rounded bg-[#F4F7F0] border border-[#DCE5D5]">Enter</kbd> Next (when complete)
       </p>
+      </div>
     </div>
   );
 };

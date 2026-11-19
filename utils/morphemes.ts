@@ -28,29 +28,6 @@ export interface WordMorphemeProfile {
 }
 
 export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
-  "weltschmerz": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "welt",
-        "canonicalId": "welt",
-        "displayRoot": "Welt / Bild",
-        "meaning": "world, earthly realm",
-        "origin": "German",
-        "pieRoot": "*wi-ro- / *al-",
-        "pieGroupId": "pie:wiro"
-      },
-      {
-        "form": "schmerz",
-        "canonicalId": "schmerz",
-        "displayRoot": "Schmerz",
-        "meaning": "pain, ache, grief",
-        "origin": "German",
-        "pieRoot": "*smerd-"
-      }
-    ],
-    "suffixes": []
-  },
   "antinomy": {
     "prefixes": [
       {
@@ -7181,44 +7158,6 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
     ],
     "suffixes": []
   },
-  "fallacious": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "fallac",
-        "canonicalId": "fallere",
-        "displayRoot": "fallere / fals-: to deceive, disappoint, fail",
-        "meaning": "to deceive, lead astray",
-        "origin": "Latin",
-        "pieRoot": "*dʰwel-",
-        "pieGroupId": "pie:dhwel"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ious",
-        "meaning": "having the quality of, full of (adjective)"
-      }
-    ]
-  },
-  "fastidious": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "fastidi",
-        "canonicalId": "fastidium",
-        "displayRoot": "fastidium: disgust, squeamishness, disdain",
-        "meaning": "disgust, squeamishness, aversion",
-        "origin": "Latin"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ous",
-        "meaning": "full of, having the quality of (adjective)"
-      }
-    ]
-  },
   "feckless": {
     "prefixes": [],
     "roots": [
@@ -13626,6 +13565,76 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
         "meaning": "capable of, prone to (adjective)"
       }
     ]
+  },
+  "trivia": {
+    "prefixes": [
+      {
+        "form": "tri-",
+        "canonicalId": "prefix-tri",
+        "meaning": "three"
+      }
+    ],
+    "roots": [
+      {
+        "form": "vi-",
+        "canonicalId": "via",
+        "displayRoot": "via",
+        "meaning": "way, road",
+        "origin": "Latin",
+        "pieRoot": "*weǵʰ-",
+        "pieGroupId": "pie:wegh"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-a",
+        "meaning": "neuter plural noun suffix"
+      }
+    ]
+  },
+  "fallacy": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "fall-",
+        "canonicalId": "fallere",
+        "displayRoot": "fallere",
+        "meaning": "to deceive or lead astray",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ax",
+        "meaning": "prone to, tending to"
+      },
+      {
+        "form": "-ia",
+        "meaning": "quality, state, or condition"
+      }
+    ]
+  },
+  "logophile": {
+    "prefixes": [],
+    "roots": [
+      {
+        "form": "logo-",
+        "canonicalId": "logos",
+        "displayRoot": "logos",
+        "meaning": "word, speech, reason",
+        "origin": "Greek",
+        "pieRoot": "*leǵ-",
+        "pieGroupId": "pie:leg"
+      },
+      {
+        "form": "-phile",
+        "canonicalId": "philos",
+        "displayRoot": "philos",
+        "meaning": "loving, fond of",
+        "origin": "Greek"
+      }
+    ],
+    "suffixes": []
   }
 };
 

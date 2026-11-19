@@ -2,13 +2,13 @@ import { GardenEntry, GrowthStage, GameMode, RecallOutcome, Word } from '../type
 
 /**
  * Computes the GrowthStage of a word based on verified SM-2 repetition count and interval days.
- * Mastered stages ('bloom' / 'perennial') require multi-week spacing, and lapses reset cleanly.
+ * Mastered stages ('bloom' / 'perennial' [Established]) require multi-week spacing, and lapses reset cleanly.
  */
 export function computeGrowthStage(repetitionCount: number, intervalDays: number): GrowthStage {
   if (repetitionCount <= 0) return 'seed';
-  if (intervalDays >= 30 && repetitionCount >= 4) return 'perennial';
-  if (intervalDays >= 14 && repetitionCount >= 3) return 'bloom';
-  if (intervalDays >= 3 && repetitionCount >= 2) return 'bud';
+  if (intervalDays >= 18 && repetitionCount >= 4) return 'perennial';
+  if (intervalDays >= 10 && repetitionCount >= 3) return 'bloom';
+  if (intervalDays >= 6 && repetitionCount >= 2) return 'bud';
   return 'sprout';
 }
 
@@ -49,6 +49,10 @@ export function computeMasteryRankPoints(entries: GardenEntry[]): number {
   }, 0);
 }
 
+const MS_PER_DAY = 86400000;
+export const MIN_INITIAL_WATERING_DAYS = 3;
+export const MAX_WATERING_INTERVAL_DAYS = 30;
+
 /**
  * Evaluates whether a learned word in the user's conservatory is due for review ("Thirsty").
  * Composted words are never queued for review.
@@ -56,12 +60,85 @@ export function computeMasteryRankPoints(entries: GardenEntry[]): number {
 export function isWordThirsty(entry: GardenEntry): boolean {
   if (entry.isComposted) return false;
   if (!entry.nextReviewDate) {
-    // Words migrated from legacy storage without nextReviewDate are ready for review
+    // Legacy entries without nextReviewDate wait at least 3 days from lastWateredDate
+    if (entry.lastWateredDate) {
+      const last = new Date(entry.lastWateredDate).getTime();
+      if (!Number.isNaN(last)) {
+        return Date.now() - last >= MIN_INITIAL_WATERING_DAYS * MS_PER_DAY;
+      }
+    }
     return true;
   }
   const now = new Date().getTime();
   const due = new Date(entry.nextReviewDate).getTime();
   return now >= due;
+}
+
+/**
+ * Returns whole days remaining until this word needs watering (0 if already due).
+ */
+export function getDaysUntilReview(entry: GardenEntry): number {
+  if (entry.isComposted) return 0;
+  if (isWordThirsty(entry)) return 0;
+  if (!entry.nextReviewDate) return MIN_INITIAL_WATERING_DAYS;
+  const remainingMs = new Date(entry.nextReviewDate).getTime() - Date.now();
+  return Math.max(1, Math.ceil(remainingMs / MS_PER_DAY));
+}
+
+/**
+ * Human-readable countdown label for a word's next watering.
+ */
+export function formatNextReviewLabel(entry: GardenEntry): string {
+  if (entry.isComposted) return 'Composted (Skipped)';
+  if (entry.dateLearned === 'Undiscovered') return 'Not yet learned';
+  if (isWordThirsty(entry)) return 'Needs watering now';
+  const days = getDaysUntilReview(entry);
+  if (days === 1) return 'Due in 1 day';
+  if (days < 14) return `Due in ${days} days`;
+  const weeks = Math.round(days / 7);
+  return weeks === 1 ? 'Due in 1 week' : `Due in ${weeks} weeks`;
+}
+
+/**
+ * Shared interval progression curve:
+ * - Newly learned words wait at least 3 days (3–4d Sprout)
+ * - Budding: 6–8d
+ * - In Bloom: 10–14d
+ * - Established: 18–21d on first arrival, gently scaling up to a 30-day cap
+ */
+function computeNextIntervalDays(
+  prevReps: number,
+  prevInterval: number,
+  quality: number
+): number {
+  if (quality < 3) return 2;
+  if (prevReps === 0) {
+    return quality >= 5 ? 4 : 3;
+  }
+  if (prevReps === 1) {
+    return quality >= 5 ? 8 : 6;
+  }
+  if (prevReps === 2) {
+    return quality >= 5 ? 14 : 10;
+  }
+  if (prevReps === 3) {
+    return quality >= 5 ? 21 : 18;
+  }
+  const factor = quality >= 5 ? 1.4 : 1.25;
+  const scaled = Math.round(prevInterval * factor);
+  return Math.min(MAX_WATERING_INTERVAL_DAYS, Math.max(21, scaled));
+}
+
+/**
+ * Preview the next interval (in days) if the user rates a due word with the given quality.
+ */
+export function previewNextIntervalDays(entry: GardenEntry, quality: 2 | 4 | 5): number {
+  const prevReps = entry.repetitionCount ?? 1;
+  const prevInterval = Math.max(
+    MIN_INITIAL_WATERING_DAYS,
+    entry.intervalDays ?? MIN_INITIAL_WATERING_DAYS
+  );
+  return computeNextIntervalDays(prevReps, prevInterval, quality);
 }
 
 /**
@@ -128,30 +205,32 @@ export function createGardenEntry(
   }
 
   if (outcome === 'missed') {
+    const initialMissedWait = new Date(now.getTime() + MIN_INITIAL_WATERING_DAYS * MS_PER_DAY);
     return {
       ...wordObj,
       dateLearned: now.toLocaleDateString(),
       repetitionCount: 0,
       easeFactor: 2.3,
-      intervalDays: 1,
+      intervalDays: MIN_INITIAL_WATERING_DAYS,
       lastWateredDate: now.toISOString(),
-      // Missed words are due immediately so they surface right away in Flashcards
-      nextReviewDate: now.toISOString(),
+      // Leave at least 3 days before a freshly encountered word becomes due for watering
+      nextReviewDate: initialMissedWait.toISOString(),
       growthStage: 'seed',
       modesMastered: [],
       isComposted: false,
     };
   }
 
-  const tomorrow = new Date(now.getTime() + 86400000);
+  const initialIntervalDays = outcome === 'clean' ? 4 : MIN_INITIAL_WATERING_DAYS;
+  const firstReviewDate = new Date(now.getTime() + initialIntervalDays * MS_PER_DAY);
   return {
     ...wordObj,
     dateLearned: now.toLocaleDateString(),
     repetitionCount: 1,
     easeFactor: outcome === 'clean' ? 2.6 : 2.4,
-    intervalDays: 1,
+    intervalDays: initialIntervalDays,
     lastWateredDate: now.toISOString(),
-    nextReviewDate: tomorrow.toISOString(),
+    nextReviewDate: firstReviewDate.toISOString(),
     growthStage: 'sprout',
     modesMastered: [mode],
     isComposted: false,
@@ -173,24 +252,28 @@ export function applySpacedRepetitionWithMeta(
   const now = new Date();
   const prevReps = entry.repetitionCount ?? 1;
   const prevEase = entry.easeFactor ?? 2.5;
-  const prevInterval = entry.intervalDays ?? 1;
+  const prevInterval = Math.max(
+    MIN_INITIAL_WATERING_DAYS,
+    entry.intervalDays ?? MIN_INITIAL_WATERING_DAYS
+  );
   const existingModes = entry.modesMastered ?? [];
   const updatedModes = existingModes.includes(mode)
     ? existingModes
     : [...existingModes, mode];
 
-  // If missed ('Again'), always process the lapse immediately
+  // If missed ('Again'), reset to Seed and schedule re-review in 2 days
   if (quality < 3) {
     const nextEase = Number(Math.max(1.3, prevEase - 0.2).toFixed(2));
+    const retryDate = new Date(now.getTime() + 2 * MS_PER_DAY);
     return {
       scheduleAdvanced: true,
       entry: {
         ...entry,
         repetitionCount: 0,
         easeFactor: nextEase,
-        intervalDays: 1,
+        intervalDays: 2,
         lastWateredDate: now.toISOString(),
-        nextReviewDate: now.toISOString(), // immediately due for re-review
+        nextReviewDate: retryDate.toISOString(),
         growthStage: 'seed',
         modesMastered: existingModes,
         isComposted: false,
@@ -198,8 +281,8 @@ export function applySpacedRepetitionWithMeta(
     };
   }
 
-  // Only advance the spaced interval if the word is actually due (or recovering from rep 0)
-  const isDue = isWordThirsty(entry) || prevReps === 0;
+  // Only advance the spaced interval if the word is actually due
+  const isDue = isWordThirsty(entry);
   if (!isDue) {
     return {
       scheduleAdvanced: false,
@@ -212,24 +295,14 @@ export function applySpacedRepetitionWithMeta(
     };
   }
 
-  let nextInterval = prevInterval;
-  if (prevReps === 0) {
-    nextInterval = 1;
-  } else if (prevReps === 1) {
-    nextInterval = quality >= 5 ? 4 : 3;
-  } else if (prevReps === 2) {
-    nextInterval = quality >= 5 ? 8 : 7;
-  } else {
-    const rawNext = Math.round(prevInterval * prevEase);
-    nextInterval = quality >= 5 ? Math.round(rawNext * 1.15) : rawNext;
-  }
+  const nextInterval = computeNextIntervalDays(prevReps, prevInterval, quality);
 
   const nextReps = prevReps + 1;
   const nextEase = Math.max(
     1.3,
     prevEase + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
   );
-  const nextReview = new Date(now.getTime() + nextInterval * 86400000);
+  const nextReview = new Date(now.getTime() + nextInterval * MS_PER_DAY);
 
   return {
     scheduleAdvanced: true,

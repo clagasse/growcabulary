@@ -8,6 +8,78 @@
   },
   "words": [
     {
+      "id": "staged-1795071141875-0",
+      "word": "abscission",
+      "seed": "garden",
+      "topic": "biology",
+      "form": "noun",
+      "definition": "the natural shedding or dropping of plant parts such as leaves, flowers, or ripe fruit",
+      "definition2": "a sudden cutting off, severance, or abrupt termination of a relationship or process",
+      "etymology": "Derived from the Latin verb 'abscindere', built from 'ab-' meaning away and 'scindere' meaning to tear, split, or cleave. Roman agricultural writers used the related noun 'abscissio' to describe the physical pruning of vine shoots or amputation in early medical texts. In modern botanical science, the term came to specify the deliberate cellular separation layer that lets a leaf fall cleanly without leaving an open wound.",
+      "example": "As autumn chilled the orchard, the sudden abscission of golden leaves left the apple boughs stark against the gathering twilight.",
+      "origin": "Latin"
+    },
+    {
+      "id": "staged-1795071141875-1",
+      "word": "mycelial",
+      "seed": "garden",
+      "topic": "biology",
+      "form": "adjective",
+      "definition": "relating to the vegetative network of threadlike fungal filaments spreading through soil or organic matter",
+      "definition2": "interconnected, pervasive, and operating through decentralized or hidden subterranean pathways",
+      "etymology": "Formed from the modern Latin noun 'mycelium', which was coined in the nineteenth century using the Ancient Greek root 'mykes', meaning fungus or mushroom, joined with 'helos', meaning nail or stud. The coinage reflected early naturalists' observations of the pervasive underground netting that binds forest soil long before visible fruiting bodies emerge. Over time, the word acquired broad metaphorical power to describe dense, invisible systems of communal exchange.",
+      "example": "Beneath the quiet forest floor lay a vast mycelial web, silently shuttling water and vital nutrients between distant oak roots.",
+      "origin": "Ancient Greek"
+    },
+    {
+      "id": "staged-1795071141875-2",
+      "word": "rhizomatic",
+      "seed": "garden",
+      "topic": "biology",
+      "form": "adjective",
+      "definition": "producing or resembling a horizontal underground plant stem that sends out roots and shoots from its nodes",
+      "definition2": "possessing a non-linear, decentralized structure that spreads outward continuously without a single hierarchical center",
+      "etymology": "Traced to the Ancient Greek noun 'rhizoma', meaning a mass of roots, which derived from the verb 'rhizoun', to cause to strike root. Classical botanists used the word to describe spreading subterranean stems like ginger and iris that survive harsh winters underground. Twentieth-century continental philosophers seized on this horizontal creeping habit to model forms of thought and organization that resist centralized authority.",
+      "example": "The tenacious fern established a dense rhizomatic carpet along the damp ravine, quickly sending up vibrant green fronds in every direction.",
+      "origin": "Ancient Greek"
+    },
+    {
+      "id": "staged-1795071141875-3",
+      "word": "anther",
+      "seed": "garden",
+      "topic": "biology",
+      "form": "noun",
+      "definition": "the terminal part of a flower stamen that produces and contains fertilizing pollen grains",
+      "definition2": "a vibrant focal point or generative tip from which vitality and creative potential are dispersed",
+      "etymology": "Borrowed from the French 'anthère', which arose from the Ancient Greek 'antheros', meaning flowering, blooming, or lively, rooted in 'anthos', a flower or blossom. Early herbalists and Renaissance botanists adapted the descriptor to designate the powdery, capsule-like crown perched atop the floral filament. The word steadily narrowed into a precise anatomical label while retaining poetical associations with floral vitality and generation.",
+      "example": "A bumblebee dusted its fuzzy abdomen with golden flour as it brushed against the velvety anther of the wild tiger lily.",
+      "origin": "Ancient Greek"
+    },
+    {
+      "id": "staged-1795071141875-4",
+      "word": "deciduous",
+      "seed": "garden",
+      "topic": "biology",
+      "form": "adjective",
+      "definition": "shedding leaves or foliage annually at the end of a growing season",
+      "definition2": "transitory, fleeting, or naturally discarded after serving a temporary developmental purpose",
+      "etymology": "Drawn from the Latin adjective 'deciduus', meaning falling down or dying off, which stems from the compound verb 'decidere', formed by 'de-' meaning down and 'cadere' meaning to fall. Roman naturalists applied the concept to describe trees that yielded to winter frosts as well as milk teeth that shed during childhood. Through centuries of English natural history, the word came to encapsulate the rhythmic, cyclical impermanence of the living world.",
+      "example": "In late October, the deciduous canopy ignited into fiery shades of copper and amber before fluttering softly onto the forest trail.",
+      "origin": "Latin"
+    },
+    {
+      "id": "staged-1795071141875-5",
+      "word": "turgor",
+      "seed": "garden",
+      "topic": "biology",
+      "form": "noun",
+      "definition": "the normal rigid state of plant tissue resulting from internal fluid pressure against cell walls",
+      "definition2": "a swollen, distended, or intensely strained condition of fullness and pent-up pressure",
+      "etymology": "Derived directly from the Latin noun 'turgor', meaning a swelling or puffed-up condition, born from the verb 'turgere', to be swollen or inflated. Ancient commentators used the term to describe overflowing rivers, puffed chests in prideful orators, and ripening grapes swollen with juice. Nineteenth-century plant physiologists adopted the term to define the essential osmotic pressure that keeps delicate herbaceous stems standing upright.",
+      "example": "After a soaking rainstorm broke the summer drought, the parched tomato vines swiftly regained their crisp turgor and stood upright again.",
+      "origin": "Latin"
+    },
+    {
       "id": "staged-1794976121368-0",
       "word": "trepidation",
       "seed": "garden",
