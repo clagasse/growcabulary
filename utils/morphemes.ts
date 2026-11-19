@@ -28,137 +28,6 @@ export interface WordMorphemeProfile {
 }
 
 export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
-  "apodictic": {
-    "prefixes": [
-      {
-        "form": "apo-",
-        "canonicalId": "prefix-apo",
-        "meaning": "away from, forth"
-      }
-    ],
-    "roots": [
-      {
-        "form": "dict",
-        "canonicalId": "deiknynai",
-        "displayRoot": "deiknynai",
-        "meaning": "to show, point out, prove",
-        "origin": "Greek",
-        "pieRoot": "*deyḱ-",
-        "pieGroupId": "pie:deyk"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ic",
-        "meaning": "pertaining to (adjective)"
-      }
-    ]
-  },
-  "ataraxia": {
-    "prefixes": [
-      {
-        "form": "a-",
-        "canonicalId": "prefix-a",
-        "meaning": "without, not, lacking"
-      }
-    ],
-    "roots": [
-      {
-        "form": "tarax",
-        "canonicalId": "tarassein",
-        "displayRoot": "tarassein",
-        "meaning": "to trouble, disturb, agitate",
-        "origin": "Ancient Greek",
-        "pieRoot": "*dʰregʰ-"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ia",
-        "meaning": "state or condition (noun)"
-      }
-    ]
-  },
-  "epistemology": {
-    "prefixes": [
-      {
-        "form": "epi-",
-        "canonicalId": "prefix-epi",
-        "meaning": "upon, over, beside"
-      }
-    ],
-    "roots": [
-      {
-        "form": "steme",
-        "canonicalId": "stasis",
-        "displayRoot": "histanai / stasis",
-        "meaning": "standing, to stand, understand",
-        "origin": "Greek",
-        "pieRoot": "*steh₂-",
-        "pieGroupId": "pie:steh"
-      },
-      {
-        "form": "logy",
-        "canonicalId": "logos",
-        "displayRoot": "-logia / legein / logos",
-        "meaning": "word, speech, study",
-        "origin": "Greek",
-        "pieRoot": "*leǵ-",
-        "pieGroupId": "pie:leg"
-      }
-    ],
-    "suffixes": []
-  },
-  "incommensurability": {
-    "prefixes": [
-      {
-        "form": "in-",
-        "canonicalId": "prefix-in",
-        "meaning": "not"
-      },
-      {
-        "form": "com-",
-        "canonicalId": "prefix-com",
-        "meaning": "with, together, completely"
-      }
-    ],
-    "roots": [
-      {
-        "form": "mensur",
-        "canonicalId": "mensura",
-        "displayRoot": "metiri / mensura",
-        "meaning": "to measure, limit, proportion",
-        "origin": "Latin",
-        "pieRoot": "*meh₁-",
-        "pieGroupId": "pie:meh"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-able",
-        "meaning": "capable of being (adjective)"
-      },
-      {
-        "form": "-ity",
-        "meaning": "state or quality (noun)"
-      }
-    ]
-  },
-  "noumenon": {
-    "prefixes": [],
-    "roots": [
-      {
-        "form": "noumenon",
-        "canonicalId": "nous",
-        "displayRoot": "nous / noein",
-        "meaning": "mind, intellect, thought",
-        "origin": "Greek",
-        "pieRoot": "*nes-",
-        "pieGroupId": "pie:nes"
-      }
-    ],
-    "suffixes": []
-  },
   "ontology": {
     "prefixes": [],
     "roots": [
@@ -13194,32 +13063,6 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
     ],
     "suffixes": []
   },
-  "exuberance": {
-    "prefixes": [
-      {
-        "form": "ex-",
-        "canonicalId": "prefix-ex",
-        "meaning": "thoroughly"
-      }
-    ],
-    "roots": [
-      {
-        "form": "uber",
-        "canonicalId": "uber",
-        "displayRoot": "uber",
-        "meaning": "udder, fertile breast, fruitful",
-        "origin": "Latin",
-        "pieRoot": "*h₁ówHdʰ-r̥",
-        "pieGroupId": "pie:howhdhr"
-      }
-    ],
-    "suffixes": [
-      {
-        "form": "-ance",
-        "meaning": "state or quality of"
-      }
-    ]
-  },
   "veto": {
     "prefixes": [],
     "roots": [
@@ -13639,6 +13482,152 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
       {
         "form": "-y",
         "meaning": "abstract noun suffix"
+      }
+    ]
+  },
+  "cataclysm": {
+    "prefixes": [
+      {
+        "form": "cata-",
+        "canonicalId": "prefix-cata",
+        "meaning": "down"
+      }
+    ],
+    "roots": [
+      {
+        "form": "clysm",
+        "canonicalId": "klyzein",
+        "displayRoot": "klyzein",
+        "meaning": "to wash, deluge",
+        "origin": "Greek",
+        "pieRoot": "*ḱlewh₁-",
+        "pieGroupId": "pie:klewh"
+      }
+    ],
+    "suffixes": []
+  },
+  "famished": {
+    "prefixes": [
+      {
+        "form": "af-",
+        "canonicalId": "prefix-ad",
+        "meaning": "to, toward"
+      }
+    ],
+    "roots": [
+      {
+        "form": "fam",
+        "canonicalId": "fames",
+        "displayRoot": "fames",
+        "meaning": "hunger, starvation",
+        "origin": "Latin"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ish",
+        "meaning": "verb-forming suffix"
+      },
+      {
+        "form": "-ed",
+        "meaning": "past participle suffix"
+      }
+    ]
+  },
+  "astonish": {
+    "prefixes": [
+      {
+        "form": "ex-",
+        "canonicalId": "prefix-ex",
+        "meaning": "out, thoroughly"
+      }
+    ],
+    "roots": [
+      {
+        "form": "ton",
+        "canonicalId": "tonare",
+        "displayRoot": "tonare",
+        "meaning": "to thunder",
+        "origin": "Latin",
+        "pieRoot": "*(s)tene-",
+        "pieGroupId": "pie:stene"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ish",
+        "meaning": "verb-forming suffix"
+      }
+    ]
+  },
+  "nirvana": {
+    "prefixes": [
+      {
+        "form": "nis-",
+        "canonicalId": "prefix-nis",
+        "meaning": "out"
+      }
+    ],
+    "roots": [
+      {
+        "form": "vā",
+        "canonicalId": "va",
+        "displayRoot": "vā",
+        "meaning": "to blow",
+        "origin": "Sanskrit",
+        "pieRoot": "*h₂wē-",
+        "pieGroupId": "pie:hwe"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-na",
+        "meaning": "action noun or past participle suffix"
+      }
+    ]
+  },
+  "samsara": {
+    "prefixes": [
+      {
+        "form": "sam-",
+        "canonicalId": "prefix-com",
+        "meaning": "together"
+      }
+    ],
+    "roots": [
+      {
+        "form": "sṛ",
+        "canonicalId": "sr",
+        "displayRoot": "sṛ",
+        "meaning": "to flow, run",
+        "origin": "Sanskrit"
+      }
+    ],
+    "suffixes": []
+  },
+  "entangle": {
+    "prefixes": [
+      {
+        "form": "ex-",
+        "canonicalId": "prefix-ex",
+        "meaning": "thoroughly"
+      }
+    ],
+    "roots": [
+      {
+        "form": "uber",
+        "canonicalId": "uber",
+        "displayRoot": "uber",
+        "meaning": "udder, fertile breast, fruitful",
+        "origin": "Latin",
+        "pieRoot": "*h₁ówHdʰ-r̥",
+        "pieGroupId": "pie:howhdhr"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-ance",
+        "meaning": "state or quality of"
       }
     ]
   }
