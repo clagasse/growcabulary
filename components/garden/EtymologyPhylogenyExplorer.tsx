@@ -107,8 +107,8 @@ const ZONE_META: Record<TrunkId, ZoneMeta> = {
     id: 'latin-romance',
     title: 'Latin & Romance',
     emoji: '🏛️',
-    cx: -370,
-    cy: -220,
+    cx: -540,
+    cy: -290,
     fill: 'rgba(220, 252, 231, 0.34)',
     border: 'rgba(21, 128, 61, 0.28)',
     badgeBg: 'rgba(236, 253, 245, 0.95)',
@@ -118,8 +118,8 @@ const ZONE_META: Record<TrunkId, ZoneMeta> = {
     id: 'hellenic',
     title: 'Greek',
     emoji: '🌺',
-    cx: 380,
-    cy: -220,
+    cx: 560,
+    cy: -230,
     fill: 'rgba(252, 231, 243, 0.34)',
     border: 'rgba(190, 24, 93, 0.25)',
     badgeBg: 'rgba(253, 242, 248, 0.94)',
@@ -129,8 +129,8 @@ const ZONE_META: Record<TrunkId, ZoneMeta> = {
     id: 'germanic',
     title: 'Germanic & Norse',
     emoji: '🌲',
-    cx: -370,
-    cy: 230,
+    cx: -360,
+    cy: 430,
     fill: 'rgba(236, 252, 203, 0.38)',
     border: 'rgba(77, 124, 15, 0.25)',
     badgeBg: 'rgba(247, 254, 231, 0.94)',
@@ -140,8 +140,8 @@ const ZONE_META: Record<TrunkId, ZoneMeta> = {
     id: 'global',
     title: 'World & Eponyms',
     emoji: '🌍',
-    cx: 380,
-    cy: 230,
+    cx: 520,
+    cy: 380,
     fill: 'rgba(254, 243, 199, 0.38)',
     border: 'rgba(180, 83, 9, 0.25)',
     badgeBg: 'rgba(255, 251, 235, 0.94)',
@@ -167,8 +167,8 @@ const LATIN_SUB_META: Record<
     id: 'latin',
     title: 'Latin',
     emoji: '🌿',
-    dx: -75,
-    dy: -10,
+    dx: -115,
+    dy: -25,
     color: '#15803D',
     fill: 'rgba(220, 252, 231, 0.2)',
     border: 'rgba(21, 128, 61, 0.25)',
@@ -178,8 +178,8 @@ const LATIN_SUB_META: Record<
     id: 'french',
     title: 'French',
     emoji: '🪻',
-    dx: 165,
-    dy: -85,
+    dx: 195,
+    dy: -115,
     color: '#6D28D9',
     fill: 'rgba(237, 233, 254, 0.42)',
     border: 'rgba(124, 58, 237, 0.32)',
@@ -189,8 +189,8 @@ const LATIN_SUB_META: Record<
     id: 'italian-spanish',
     title: 'Italian & Spanish',
     emoji: '🌷',
-    dx: 165,
-    dy: 85,
+    dx: 195,
+    dy: 105,
     color: '#C2410C',
     fill: 'rgba(255, 237, 213, 0.48)',
     border: 'rgba(234, 88, 12, 0.32)',
@@ -1048,8 +1048,8 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
         'link',
         forceLink<GraphNode, GraphLink>(graphData.links)
           .id((d) => d.id)
-          .distance((l) => (l.kind === 'cognate' ? 110 : 34))
-          .strength((l) => (l.kind === 'cognate' ? 0.14 : 0.78))
+          .distance((l) => (l.kind === 'cognate' ? 280 : 34))
+          .strength((l) => (l.kind === 'cognate' ? 0.025 : 0.78))
       )
       .force(
         'charge',
@@ -1067,13 +1067,13 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
       .force(
         'x',
         forceX<GraphNode>((d) => getTargetCenter(d, isSingleZone).x).strength(
-          isSingleZone ? 0.08 : 0.14
+          isSingleZone ? 0.08 : 0.19
         )
       )
       .force(
         'y',
         forceY<GraphNode>((d) => getTargetCenter(d, isSingleZone).y).strength(
-          isSingleZone ? 0.08 : 0.14
+          isSingleZone ? 0.08 : 0.19
         )
       )
       .velocityDecay(0.58)
@@ -1670,48 +1670,18 @@ export const EtymologyPhylogenyExplorer: React.FC<EtymologyPhylogenyExplorerProp
                     </div>
                   )}
 
-                  {/* Action Buttons right inside the pop-up */}
-                  <div className="flex flex-wrap items-center gap-2 pt-1.5 border-t border-[#DCE5D5]">
-                    {onOpenWordFlashcard && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onOpenWordFlashcard(selectedDetails.node.wordData!)
-                        }
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold shadow-sm transition-colors"
-                      >
-                        <Droplets className="w-3.5 h-3.5" />
-                        <span>
-                          {selectedDetails.node.isLearned ? 'Open Flashcard' : 'Inspect Word'}
-                        </span>
-                      </button>
-                    )}
+                  {/* Action Button right inside the pop-up */}
+                  <div className="pt-1.5 border-t border-[#DCE5D5]">
                     <button
                       type="button"
                       onClick={() =>
                         onSelectWordDossier(toDossierEntry(selectedDetails.node.wordData!))
                       }
-                      className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl bg-[#F4F7F0] hover:bg-[#E7F0E3] text-emerald-950 border border-[#DCE5D5] text-xs font-bold transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold shadow-sm transition-colors"
                     >
                       <BookOpen className="w-3.5 h-3.5" />
-                      <span>Dossier</span>
+                      <span>Open Word Dossier</span>
                     </button>
-                    {onPracticeOriginFlashcards && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onPracticeOriginFlashcards(
-                            `branch:${classifyOriginBranch(selectedDetails.node.wordData!.origin).branchId}`
-                          )
-                        }
-                        className="w-full inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 text-[11px] font-bold transition-colors"
-                      >
-                        <span>
-                          Practice All{' '}
-                          {classifyOriginBranch(selectedDetails.node.wordData.origin).branchLabel}
-                        </span>
-                      </button>
-                    )}
                   </div>
                 </>
               )

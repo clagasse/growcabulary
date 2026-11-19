@@ -78,19 +78,25 @@ export const BotanicalPlateSpecimen: React.FC<BotanicalPlateSpecimenProps> = ({
         />
       </div>
 
-      {/* Quiet Species Footnote (click to inspect full plate) */}
+      {/* Noticeable Clickable Species & Source Pill (opens full Herbarium Lightbox) */}
       {showCaption && (
         <div className={`relative z-10 flex justify-end ${className}`}>
           <button
             type="button"
             onClick={() => setLightboxOpen(true)}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFFDF8]/75 hover:bg-[#FFFDF8] text-[10px] sm:text-[11px] text-emerald-900/75 hover:text-emerald-950 transition-colors focus:outline-none focus-visible:underline"
-            title={`View full vintage botanical plate (${plate.sourceAtlas})`}
+            className="inline-flex flex-wrap items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF6EA]/95 hover:bg-[#EDF5EB] text-emerald-950 border border-[#C6DEC2] hover:border-emerald-600 shadow-xs text-[11px] sm:text-xs transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            title={`View full vintage botanical plate & source (${plate.sourceAtlas})`}
           >
-            <span className="serif italic">{plate.scientificName}</span>
+            <span aria-hidden="true">🖼️</span>
+            <span className="serif italic font-semibold">{plate.scientificName}</span>
             {plate.commonName && (
-              <span className="font-medium not-italic">· {plate.commonName}</span>
+              <span className="font-medium not-italic text-emerald-900">
+                · {plate.commonName}
+              </span>
             )}
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 underline underline-offset-2 ml-0.5">
+              Full plate &amp; source ↗
+            </span>
           </button>
         </div>
       )}

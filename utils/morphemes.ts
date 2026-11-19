@@ -28,26 +28,6 @@ export interface WordMorphemeProfile {
 }
 
 export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
-  "antinomy": {
-    "prefixes": [
-      {
-        "form": "anti-",
-        "canonicalId": "prefix-anti",
-        "meaning": "against, opposite"
-      }
-    ],
-    "roots": [
-      {
-        "form": "nomy",
-        "canonicalId": "nomos",
-        "displayRoot": "nomos",
-        "meaning": "law, custom, distribution",
-        "origin": "Greek",
-        "pieRoot": "*nem-"
-      }
-    ],
-    "suffixes": []
-  },
   "apodictic": {
     "prefixes": [
       {
@@ -13635,6 +13615,32 @@ export const WORD_MORPHEMES: Record<string, WordMorphemeProfile> = {
       }
     ],
     "suffixes": []
+  },
+  "entropy": {
+    "prefixes": [
+      {
+        "form": "en-",
+        "canonicalId": "prefix-en",
+        "meaning": "in"
+      }
+    ],
+    "roots": [
+      {
+        "form": "trop-",
+        "canonicalId": "tropos",
+        "displayRoot": "trope / trepein",
+        "meaning": "a turning, transformation",
+        "origin": "Greek",
+        "pieRoot": "*trep-",
+        "pieGroupId": "pie:trep"
+      }
+    ],
+    "suffixes": [
+      {
+        "form": "-y",
+        "meaning": "abstract noun suffix"
+      }
+    ]
   }
 };
 

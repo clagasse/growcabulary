@@ -1699,9 +1699,6 @@ export const GrowcabularyPlatform: React.FC = () => {
                     {userRank.emoji} {userRank.title}
                   </span>
                 </Link>
-                <span className="bg-[#EDF5EB] text-emerald-900 border border-[#C6DEC2] text-xs font-bold px-2.5 py-0.5 rounded-full">
-                  🌳 {masteredTotal} Mastered
-                </span>
                 {dailyStreak > 0 && (
                   <span className="bg-orange-50 text-orange-700 border border-orange-200 text-xs font-black px-2.5 py-0.5 rounded-full">
                     🔥 {dailyStreak}d Streak
@@ -1787,50 +1784,6 @@ export const GrowcabularyPlatform: React.FC = () => {
                 </button>
               </div>
             )}
-
-            {/* Optional Scoring Mode Toggle */}
-            <div className="mb-5 p-3 sm:p-3.5 rounded-2xl bg-[#FAF7EE] border border-[#DCE5D5] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div>
-                <p className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-                  <span>{isScoredMode ? '🏆 Scored Mode (Timed)' : '🌿 Zen Mode (Untimed)'}</span>
-                </p>
-                <p className="text-[11px] text-emerald-800">
-                  {isScoredMode
-                    ? 'Race a 30s meter per word with difficulty and streak multipliers to set high scores.'
-                    : 'Play untimed at your own pace, or switch to Scored Mode to test your speed and recall.'}{' '}
-                  <Link
-                    href="/help#scored-mode"
-                    className="font-bold underline text-emerald-950 hover:text-emerald-700"
-                  >
-                    How scoring works →
-                  </Link>
-                </p>
-              </div>
-              <div className="inline-flex items-center bg-[#EDF5EB] p-1 rounded-full border border-[#C6DEC2] shrink-0 self-start sm:self-center">
-                <button
-                  type="button"
-                  onClick={() => setIsScoredMode(false)}
-                  className={`px-3 py-1 rounded-full text-[11px] font-black transition-all ${
-                    !isScoredMode
-                      ? 'bg-emerald-800 text-white shadow-sm'
-                      : 'text-emerald-900 hover:bg-emerald-100/70'
-                  }`}
-                >
-                  🌿 Zen
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsScoredMode(true)}
-                  className={`px-3 py-1 rounded-full text-[11px] font-black transition-all ${
-                    isScoredMode
-                      ? 'bg-amber-700 text-white shadow-sm'
-                      : 'text-emerald-900 hover:bg-amber-100/60'
-                  }`}
-                >
-                  🏆 Scored
-                </button>
-              </div>
-            </div>
 
             {/* PRIMARY FEATURE SECTION: SEED SPROUT (DISCOVER NEW WORDS) */}
             <div className="mb-7 p-5 sm:p-7 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#F2F7EE] via-[#F7FAF4] to-[#EDF5EB] border-2 border-emerald-700/30 shadow-md">
@@ -1980,6 +1933,40 @@ export const GrowcabularyPlatform: React.FC = () => {
                   );
                 })}
               </div>
+
+              {/* Compact Zen / Scored Mode Toggle for Seed Sprout */}
+              <div className="mt-4 pt-3.5 border-t border-[#D5E3D0] flex flex-wrap items-center justify-between gap-2.5">
+                <div className="inline-flex items-center bg-[#FFFDF8] p-1 rounded-full border border-[#C6DEC2]">
+                  <button
+                    type="button"
+                    onClick={() => setIsScoredMode(false)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-black transition-all ${
+                      !isScoredMode
+                        ? 'bg-emerald-800 text-white shadow-sm'
+                        : 'text-emerald-900 hover:bg-emerald-100/70'
+                    }`}
+                  >
+                    🌿 Zen (Untimed)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsScoredMode(true)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-black transition-all ${
+                      isScoredMode
+                        ? 'bg-amber-700 text-white shadow-sm'
+                        : 'text-emerald-900 hover:bg-amber-100/60'
+                    }`}
+                  >
+                    🏆 Scored (30s)
+                  </button>
+                </div>
+                <Link
+                  href="/help#scored-mode"
+                  className="text-[11px] font-bold text-emerald-900 hover:text-emerald-700 underline underline-offset-2"
+                >
+                  How scoring works →
+                </Link>
+              </div>
             </div>
 
             {/* SUBORDINATE SECTION: PRACTICE & REINFORCE YOUR DISCOVERED GARDEN WORDS */}
@@ -2086,6 +2073,40 @@ export const GrowcabularyPlatform: React.FC = () => {
                           Play Field Notes →
                         </button>
                       </div>
+
+                      {/* Compact Zen / Scored Mode Toggle for Field Notes */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#EBF0E6]">
+                        <div className="inline-flex items-center bg-[#EDF5EB] p-0.5 rounded-full border border-[#C6DEC2]">
+                          <button
+                            type="button"
+                            onClick={() => setIsScoredMode(false)}
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black transition-all ${
+                              !isScoredMode
+                                ? 'bg-emerald-800 text-white shadow-sm'
+                                : 'text-emerald-900 hover:bg-emerald-100/70'
+                            }`}
+                          >
+                            🌿 Zen
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsScoredMode(true)}
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black transition-all ${
+                              isScoredMode
+                                ? 'bg-amber-700 text-white shadow-sm'
+                                : 'text-emerald-900 hover:bg-amber-100/60'
+                            }`}
+                          >
+                            🏆 Scored
+                          </button>
+                        </div>
+                        <Link
+                          href="/help#scored-mode"
+                          className="text-[10.5px] font-bold text-emerald-800 hover:text-emerald-950 underline underline-offset-2"
+                        >
+                          How scoring works →
+                        </Link>
+                      </div>
                     </div>
                   );
                 })()}
@@ -2098,7 +2119,7 @@ export const GrowcabularyPlatform: React.FC = () => {
                         <span>🪶 In Your Own Words</span>
                       </h4>
                       <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-900">
-                        {isScoredMode ? 'Untimed Mode' : 'Write Sentences'}
+                        Write Sentences
                       </span>
                     </div>
                     <p className="text-xs text-emerald-800 leading-relaxed">
@@ -2339,12 +2360,14 @@ export const GrowcabularyPlatform: React.FC = () => {
             ) : currentWord ? (
               /* MODE 1: UNTIMED SEED SPROUT WITH MANUAL HINTS & COMPOST */
               <div className="w-full journal-card rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 relative overflow-hidden flex flex-col shrink-0">
-                <BotanicalPlateSpecimen
-                  word={currentWord.word}
-                  variant="game-bg"
-                  showCaption={isRoundOver}
-                  className="order-last mt-3"
-                />
+                {isRoundOver && (
+                  <BotanicalPlateSpecimen
+                    word={currentWord.word}
+                    variant="game-bg"
+                    showCaption
+                    className="order-last mt-3"
+                  />
+                )}
 
                 <div
                   className="absolute top-0 left-0 h-1 bg-emerald-600 transition-all duration-500 z-10"
@@ -2471,7 +2494,9 @@ export const GrowcabularyPlatform: React.FC = () => {
                         )} serif border-2 rounded-lg sm:rounded-xl text-center font-black uppercase transition-all duration-300 focus:ring-4 focus:ring-emerald-500/20 outline-none
                           ${
                             isRevealed
-                              ? 'bg-[#E2EFE0] border-[#86BA8B] text-emerald-900 shadow-sm'
+                              ? isRoundOver
+                                ? 'bg-[#E2EFE0]/65 border-[#86BA8B] text-emerald-900 shadow-sm'
+                                : 'bg-[#E2EFE0] border-[#86BA8B] text-emerald-900 shadow-sm'
                               : 'bg-[#FAF7EE] border-[#C8D8C2] text-emerald-900 focus:border-emerald-600 focus:bg-[#FFFDF8]'
                           }
                           ${
@@ -2485,7 +2510,13 @@ export const GrowcabularyPlatform: React.FC = () => {
                 </div>
 
                 <div className="relative z-10 space-y-5">
-                  <div className="journal-subcard !bg-[#F8F6EE]/78 p-4 sm:p-6 rounded-2xl">
+                  <div
+                    className={`p-4 sm:p-6 rounded-2xl border transition-colors duration-500 ${
+                      isRoundOver
+                        ? 'bg-[#FFFDF8]/45 border-[#DCE5D5]/80'
+                        : 'journal-subcard'
+                    }`}
+                  >
                     <div className="flex items-center gap-2 mb-2.5">
                       <span className="bg-emerald-800 text-white text-[9px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-tighter">
                         {currentWord.form}
@@ -2502,7 +2533,13 @@ export const GrowcabularyPlatform: React.FC = () => {
                         {currentWord.definition2}
                       </p>
                     )}
-                    <div className="field-quote !bg-[#F7F3E8]/78 p-3.5 rounded-xl">
+                    <div
+                      className={`p-3.5 rounded-xl transition-colors duration-500 ${
+                        isRoundOver
+                          ? 'bg-[#F7F3E8]/42 border border-[#E6DEC8]/80 border-l-[3px] border-l-[#16a34a]'
+                          : 'field-quote'
+                      }`}
+                    >
                       <p className="text-[10px] sm:text-xs font-black text-emerald-700 uppercase tracking-wider mb-1">
                         Example usage
                       </p>
@@ -2651,10 +2688,10 @@ export const GrowcabularyPlatform: React.FC = () => {
                     <div
                       className={`text-center p-3 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 ${
                         animation === 'success'
-                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                          ? 'bg-emerald-100/65 text-emerald-900 border border-emerald-200'
                           : animation === 'failure'
-                          ? 'bg-amber-50 text-amber-900 border border-amber-200'
-                          : 'bg-amber-100 text-amber-900 border border-amber-200'
+                          ? 'bg-amber-50/75 text-amber-900 border border-amber-200'
+                          : 'bg-amber-100/75 text-amber-900 border border-amber-200'
                       }`}
                     >
                       {message}

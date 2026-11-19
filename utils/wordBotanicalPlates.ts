@@ -9,6 +9,8 @@ export interface BotanicalPlate {
   scientificName: string;
   commonName: string;
   sourceAtlas: string;
+  /** Tiny self-hosted WebP thumbnail (~5 KB) for the Pressed Specimens wall */
+  miniThumbUrl: string;
   thumbUrl: string;
   fullUrl: string;
 }
@@ -994,11 +996,19 @@ function hashWordDeterministic(input: string): number {
   return h >>> 0;
 }
 
+function toPlateSlug(scientificName: string): string {
+  return scientificName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 function tupleToPlate(tuple: CompactPlateTuple): BotanicalPlate {
   return {
     scientificName: tuple[0],
     commonName: tuple[1],
     sourceAtlas: ATLAS_LABELS[tuple[2]],
+    miniThumbUrl: `/plates/${toPlateSlug(tuple[0])}.webp`,
     thumbUrl: tuple[3],
     fullUrl: tuple[4],
   };

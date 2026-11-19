@@ -1539,13 +1539,13 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                   );
 
                   return (
-                    <div className="flashcard-perspective">
+                    <div key={currentFlashcard.word} className="flashcard-perspective">
                       <div className={`flashcard-inner ${isCardFlipped ? 'is-flipped' : ''}`}>
                         {/* CARD FRONT FACE */}
                         <div
                           aria-hidden={isCardFlipped}
-                          className={`flashcard-face journal-card rounded-3xl overflow-hidden flex flex-col ${
-                            isCardFlipped ? 'pointer-events-none' : ''
+                          className={`flashcard-face journal-card rounded-3xl overflow-hidden flex flex-col transition-opacity duration-200 ${
+                            isCardFlipped ? 'pointer-events-none opacity-0 invisible' : 'opacity-100 visible'
                           }`}
                         >
                           <div
@@ -1678,8 +1678,10 @@ export const SecretGardenConservatory: React.FC<SecretGardenConservatoryProps> =
                         {/* CARD BACK FACE */}
                         <div
                           aria-hidden={!isCardFlipped}
-                          className={`flashcard-face flashcard-back journal-card rounded-3xl overflow-hidden flex flex-col ${
-                            !isCardFlipped ? 'pointer-events-none' : ''
+                          className={`flashcard-face flashcard-back journal-card rounded-3xl overflow-hidden flex flex-col transition-opacity duration-200 ${
+                            !isCardFlipped
+                              ? 'pointer-events-none opacity-0 invisible'
+                              : 'opacity-100 visible delay-150'
                           }`}
                         >
                           <div

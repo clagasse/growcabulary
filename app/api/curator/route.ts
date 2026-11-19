@@ -17,6 +17,7 @@ import {
   WordMorphemeProfile,
 } from '../../../utils/morphemes';
 import { FIELD_NOTE_ALTERNATIVES as BUNDLED_FIELD_ALTERNATIVES } from '../../../utils/fieldAlternatives';
+import { CURATED_FIELD_QUOTES } from '../../../utils/fieldQuotes';
 import { extractWordMorphemes } from '../../../utils/etymology';
 import { findSimilarLexiconWords } from '../../../utils/wordSimilarity';
 import { getWordDifficulty, getWordTopic } from '../../../constants';
@@ -647,14 +648,357 @@ function auditWords(
       flags.push('missing-morphemes');
     }
 
+    const curatedQuote = CURATED_FIELD_QUOTES[lowerKey];
+
     return {
       ...w,
+      fieldQuote: w.fieldQuote || curatedQuote?.quote || undefined,
+      fieldQuoteAuthor: w.fieldQuoteAuthor || curatedQuote?.author || undefined,
       index,
       auditFlags: flags,
       maskedPreview,
       morphemes: morph,
     };
   });
+}
+
+export interface VerifiedWiktionaryQuote {
+  quote: string;
+  author: string;
+  type: string;
+  score: number;
+}
+
+function matchesWordOrStemInQuote(word: string, quote: string): boolean {
+  const k = (word || '').trim().toLowerCase();
+  if (!k) return false;
+  const stem = k.length > 4 ? k.replace(/(?:e|y|ing|ed|es|s)$/i, '') : k;
+  const escaped = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}[a-z'-]*\\b`, 'i').test(quote);
+}
+
+function extractEnglishWiktionarySection(wt: string): string {
+  const idx = wt.indexOf('==English==');
+  if (idx === -1) return '';
+  const rest = wt.slice(idx + 11);
+  const nextLang = rest.search(/\n==[^=]/);
+  return nextLang === -1 ? rest : rest.slice(0, nextLang);
+}
+
+function extractWiktionaryQuoteTemplates(wt: string): Array<{ type: string; raw: string }> {
+  const results: Array<{ type: string; raw: string }> = [];
+  const startRe = /\{\{(?:quote-(book|journal|news|web|text|hansard|av)|RQ:[A-Za-z0-9_:-]+)\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = startRe.exec(wt)) !== null) {
+    const type = (m[1] || 'book').toLowerCase();
+    let depth = 0;
+    let i = m.index;
+    while (i < wt.length) {
+      if (wt[i] === '{' && wt[i + 1] === '{') {
+        depth++;
+        i += 2;
+      } else if (wt[i] === '}' && wt[i + 1] === '}') {
+        depth--;
+        i += 2;
+        if (depth === 0) {
+          results.push({ type, raw: wt.slice(m.index, i) });
+          break;
+        }
+      } else {
+        i++;
+      }
+    }
+  }
+  return results;
+}
+
+function parseWiktionaryTemplateParams(raw: string): Record<string, string> {
+  const inner = raw.slice(2, -2);
+  const parts: string[] = [];
+  let cur = '';
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i];
+    const next = inner[i + 1];
+    if (c === '{' && next === '{') {
+      braceDepth++;
+      cur += '{{';
+      i++;
+      continue;
+    }
+    if (c === '}' && next === '}') {
+      braceDepth = Math.max(0, braceDepth - 1);
+      cur += '}}';
+      i++;
+      continue;
+    }
+    if (c === '[' && next === '[') {
+      bracketDepth++;
+      cur += '[[';
+      i++;
+      continue;
+    }
+    if (c === ']' && next === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+      cur += ']]';
+      i++;
+      continue;
+    }
+    if (c === '|' && braceDepth === 0 && bracketDepth === 0) {
+      parts.push(cur);
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  parts.push(cur);
+  const params: Record<string, string> = {};
+  for (let i = 1; i < parts.length; i++) {
+    const eq = parts[i].indexOf('=');
+    if (eq !== -1) {
+      const k = parts[i].slice(0, eq).trim().toLowerCase();
+      const v = parts[i].slice(eq + 1).trim();
+      params[k] = v;
+    }
+  }
+  return params;
+}
+
+function cleanWiktionaryMarkup(str?: string): string {
+  if (!str) return '';
+  let s = str;
+  s = s.replace(/<!--[\s\S]*?-->/g, '');
+  s = s.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, '');
+  s = s.replace(/<ref[^>]*\/>/gi, '');
+  s = s.replace(/<\/?(?:sup|sub|span|i|b|em|strong|small|br)\b[^>]*>/gi, ' ');
+  s = s.replace(/\{\{(?:nbsp|nbhyph)\}\}/gi, ' ');
+  s = s.replace(/\{\{\.\.\.\}\}/g, '...');
+  s = s.replace(/\{\{SIC\}\}/gi, '');
+  s = s.replace(/\{\{(?:q|qual|qualifier|gloss)\|([^|}]+)\}\}/gi, '($1)');
+  s = s.replace(/\{\{(?:w|wp|lw)\|([^|}]+)\|([^|}]+)\}\}/gi, '$2');
+  s = s.replace(/\{\{(?:w|wp|lw)\|([^|}]+)\}\}/gi, '$1');
+  s = s.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '$2');
+  s = s.replace(/\[\[(?:[a-z]+:)?([^\]]+)\]\]/g, '$1');
+  s = s.replace(/'''([^']*)'''/g, '$1');
+  s = s.replace(/''([^']*)''/g, '$1');
+  s = s
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
+
+function formatWiktionaryAuthor(params: Record<string, string>): string | null {
+  let author = cleanWiktionaryMarkup(
+    params.author || params.author1 || params.editor || params.authors || ''
+  );
+  let title = cleanWiktionaryMarkup(
+    params.title || params.work || params.journal || params.newspaper || params.magazine || ''
+  );
+  const journal = cleanWiktionaryMarkup(
+    params.journal || params.newspaper || params.magazine || params.work || ''
+  );
+  const yearMatch = (params.year || params.date || '').match(/\b(1[5-9]\d{2}|20[0-2]\d)\b/);
+  const year = yearMatch ? yearMatch[1] : '';
+
+  if (author.includes('{{') || title.includes('{{') || journal.includes('{{')) return null;
+  if (!author && !title && !journal) return null;
+
+  author = author.replace(/^(?:w|s|q):/i, '').trim();
+  title = title.replace(/^(?:w|s|q):/i, '').trim();
+
+  const parts: string[] = [];
+  if (author) parts.push(author);
+  if (title && title !== author) {
+    parts.push(title);
+  } else if (journal && journal !== author) {
+    parts.push(journal);
+  }
+  if (parts.length === 0) return null;
+  let res = parts.join(', ');
+  if (year) res += ` (${year})`;
+  return res;
+}
+
+function extractVerifiedQuotesFromWikitext(
+  word: string,
+  wt: string
+): VerifiedWiktionaryQuote[] {
+  const en = extractEnglishWiktionarySection(wt);
+  if (!en) return [];
+  const templates = extractWiktionaryQuoteTemplates(en);
+  const candidates: VerifiedWiktionaryQuote[] = [];
+  const seenQuotes = new Set<string>();
+
+  for (const t of templates) {
+    const p = parseWiktionaryTemplateParams(t.raw);
+    const rawPassage = p.passage || p.text || p.quote || '';
+    if (!rawPassage) continue;
+    if (p.lang && p.lang !== 'en') continue;
+    const quote = cleanWiktionaryMarkup(rawPassage);
+    if (!quote || quote.length < 35 || quote.length > 300) continue;
+    if (/\{\{|\}\}|\[\[|\]\]|<|>|https?:\/\//i.test(quote)) continue;
+    if (!matchesWordOrStemInQuote(word, quote)) continue;
+
+    const author = formatWiktionaryAuthor(p);
+    if (!author || author.length < 4 || author.length > 125) continue;
+    if (/\{\{|\}\}|\[\[|\]\]|<|>|https?:\/\//i.test(author)) continue;
+
+    const normQuote = quote.toLowerCase();
+    if (seenQuotes.has(normQuote)) continue;
+    seenQuotes.add(normQuote);
+
+    let score = 0;
+    if (t.type === 'book') score += 30;
+    else if (t.type === 'journal' || t.type === 'news') score += 15;
+    else score += 5;
+
+    if (p.author || p.author1) score += 20;
+    if (/[.!?]["'”’]?$/.test(quote)) score += 10;
+    if (quote.length >= 55 && quote.length <= 220) score += 10;
+    const yearMatch = author.match(/\((\d{4})\)/);
+    if (yearMatch) {
+      const y = parseInt(yearMatch[1], 10);
+      if (y >= 1800) score += 10;
+      if (y < 1700) score -= 15;
+    }
+
+    candidates.push({ quote, author, type: t.type, score });
+  }
+
+  // Also parse plain `#* Year, Author, ''Title'':\n#*: Passage` lines in Wiktionary
+  const lines = en.split(/\r?\n/);
+  for (let i = 0; i < lines.length - 1; i++) {
+    const headerLine = lines[i].trim();
+    const passageLine = lines[i + 1].trim();
+    if (
+      /^#\*+\s+[^:]/.test(headerLine) &&
+      !headerLine.includes('{{quote-') &&
+      /^#\*+:\s+\S/.test(passageLine)
+    ) {
+      const rawHeader = headerLine.replace(/^#\*+\s+/, '');
+      const rawPassage = passageLine.replace(/^#\*+:\s+/, '');
+      if (rawHeader.includes('{{') || rawPassage.includes('{{')) continue;
+
+      const quote = cleanWiktionaryMarkup(rawPassage);
+      if (!quote || quote.length < 35 || quote.length > 300) continue;
+      if (/\{\{|\}\}|\[\[|\]\]|<|>|https?:\/\//i.test(quote)) continue;
+      if (!matchesWordOrStemInQuote(word, quote)) continue;
+
+      const yearM = rawHeader.match(/\b(1[6-9]\d{2}|20[0-2]\d)\b/);
+      const titleM = rawHeader.match(/''([^']{3,90})''/);
+      const cleanedHeader = cleanWiktionaryMarkup(rawHeader);
+      if (!yearM && !titleM) continue;
+
+      // Try extracting author between year and italicized title
+      let authorPart = '';
+      if (titleM && titleM.index !== undefined) {
+        const beforeTitle = cleanWiktionaryMarkup(rawHeader.slice(0, titleM.index))
+          .replace(/^\d{4}\s*[,.\-–—]?\s*(?:[A-Z][a-z]+\s+\d{1,2}\s*,?\s*)?/, '')
+          .replace(/[,:\s]+$/, '')
+          .trim();
+        if (beforeTitle.length >= 3 && beforeTitle.length <= 60) {
+          authorPart = beforeTitle;
+        }
+      }
+      const titlePart = titleM ? cleanWiktionaryMarkup(titleM[1]).replace(/[,:\s]+$/, '') : '';
+      const pieces = [authorPart, titlePart].filter(Boolean);
+      let author = pieces.length > 0 ? pieces.join(', ') : cleanedHeader.slice(0, 90);
+      if (yearM && !author.includes(yearM[1])) {
+        author += ` (${yearM[1]})`;
+      }
+      if (!author || author.length < 5 || author.length > 125) continue;
+
+      const normQuote = quote.toLowerCase();
+      if (seenQuotes.has(normQuote)) continue;
+      seenQuotes.add(normQuote);
+
+      candidates.push({
+        quote,
+        author,
+        type: 'wiktionary-line',
+        score: (authorPart ? 25 : 10) + (titlePart ? 15 : 0) + (yearM ? 10 : 0),
+      });
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates;
+}
+
+async function fetchVerifiedWiktionaryQuotesMap(
+  wordsList: string[],
+  timeoutMs = 3500
+): Promise<Map<string, VerifiedWiktionaryQuote[]>> {
+  const result = new Map<string, VerifiedWiktionaryQuote[]>();
+  const cleanWords = Array.from(
+    new Set(wordsList.map((w) => (w || '').trim()).filter(Boolean))
+  );
+  if (cleanWords.length === 0) return result;
+
+  try {
+    const titles = cleanWords.map((w) => w.toLowerCase()).join('|');
+    const url = `https://en.wiktionary.org/w/api.php?action=query&prop=revisions&rvprop=content&rvslots=main&format=json&redirects=1&titles=${encodeURIComponent(
+      titles
+    )}`;
+    const res = await fetchWithAbortTimeout(
+      url,
+      {
+        headers: {
+          'User-Agent':
+            'GrowcabularyCurator/1.0 (https://growcabulary.com; contact@growcabulary.com)',
+        },
+      },
+      timeoutMs,
+      'Wiktionary verified quote lookup'
+    );
+    if (!res.ok) return result;
+    const data = (await res.json()) as {
+      query?: {
+        pages?: Record<
+          string,
+          {
+            missing?: unknown;
+            title?: string;
+            revisions?: Array<{ slots?: { main?: { '*'?: string } } }>;
+          }
+        >;
+        redirects?: Array<{ from: string; to: string }>;
+      };
+    };
+
+    const pages = data.query?.pages || {};
+    const byTitle = new Map<string, string>();
+    for (const p of Object.values(pages)) {
+      if (p.missing !== undefined) continue;
+      const wt = p.revisions?.[0]?.slots?.main?.['*'] || '';
+      if (p.title && wt) {
+        byTitle.set(p.title.toLowerCase(), wt);
+      }
+    }
+    const redirects = new Map<string, string>();
+    for (const r of data.query?.redirects || []) {
+      redirects.set(r.from.toLowerCase(), r.to.toLowerCase());
+    }
+
+    for (const w of cleanWords) {
+      const lower = w.toLowerCase();
+      const resolved = redirects.get(lower) || lower;
+      const wt = byTitle.get(resolved) || byTitle.get(lower) || '';
+      if (!wt) continue;
+      const quotes = extractVerifiedQuotesFromWikitext(w, wt);
+      if (quotes.length > 0) {
+        result.set(lower, quotes);
+      }
+    }
+  } catch {
+    // Non-fatal: if Wiktionary is unreachable, return empty map (never hallucinate)
+  }
+  return result;
 }
 
 function readStagedWords(): (Word & { id: string })[] {
@@ -1022,6 +1366,136 @@ async function deleteWordFromSupabase(term: string) {
   }
 }
 
+async function loadWordsMergedWithSupabase(): Promise<Word[]> {
+  const diskWords = readRawWordsFromDisk();
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return diskWords;
+
+  try {
+    type CloudWordRow = {
+      term: string;
+      part_of_speech: string;
+      definition: string;
+      definition2?: string | null;
+      etymology: string;
+      origin?: string | null;
+      example_sentence: string;
+      field_quote?: string | null;
+      field_quote_author?: string | null;
+      topic?: string | null;
+      field_alternatives?: Word['fieldAlternatives'] | null;
+      decks?: { slug?: string } | Array<{ slug?: string }> | null;
+    };
+
+    const extendedSelect =
+      'term, part_of_speech, definition, definition2, etymology, origin, example_sentence, field_quote, field_quote_author, topic, field_alternatives, decks!inner(slug)';
+    const midSelect =
+      'term, part_of_speech, definition, definition2, etymology, origin, example_sentence, topic, field_alternatives, decks!inner(slug)';
+    const baseSelect =
+      'term, part_of_speech, definition, definition2, etymology, origin, example_sentence, decks!inner(slug)';
+
+    const extRes = await supabase
+      .from('words')
+      .select(extendedSelect)
+      .eq('status', 'approved');
+
+    let cloudRows = extRes.data as CloudWordRow[] | null;
+    let queryError = extRes.error;
+
+    if (queryError && /field_quote/i.test(queryError.message)) {
+      const midRes = await supabase
+        .from('words')
+        .select(midSelect)
+        .eq('status', 'approved');
+      cloudRows = midRes.data as CloudWordRow[] | null;
+      queryError = midRes.error;
+    }
+
+    if (
+      queryError &&
+      /column|schema cache|topic|field_alternatives/i.test(queryError.message)
+    ) {
+      const baseRes = await supabase
+        .from('words')
+        .select(baseSelect)
+        .eq('status', 'approved');
+      cloudRows = baseRes.data as CloudWordRow[] | null;
+      queryError = baseRes.error;
+    }
+
+    if (queryError || !Array.isArray(cloudRows) || cloudRows.length === 0) {
+      return diskWords;
+    }
+
+    const byKey = new Map<string, number>();
+    const merged = [...diskWords];
+    merged.forEach((w, idx) => {
+      byKey.set(w.word.trim().toLowerCase(), idx);
+    });
+
+    let addedFromCloud = 0;
+    for (const row of cloudRows) {
+      if (!row.term) continue;
+      const key = row.term.trim().toLowerCase();
+      const existingIdx = byKey.get(key);
+      const existing = existingIdx !== undefined ? merged[existingIdx] : undefined;
+      const deckRel = Array.isArray(row.decks) ? row.decks[0] : row.decks;
+      const deckSlug = (deckRel?.slug || existing?.seed || 'meadow') as SeedType;
+      const validTopic =
+        row.topic &&
+        [
+          'general',
+          'emotions',
+          'philosophy',
+          'biology',
+          'architecture',
+          'statecraft',
+          'literature',
+        ].includes(row.topic)
+          ? (row.topic as TopicCategory)
+          : existing?.topic;
+
+      if (existingIdx === undefined) {
+        const cloudWord: Word = {
+          word: row.term.trim(),
+          seed: getWordDifficulty({ seed: deckSlug }),
+          topic: validTopic || getWordTopic({ seed: deckSlug }),
+          form: row.part_of_speech || 'noun',
+          definition: row.definition || '',
+          ...(row.definition2 ? { definition2: row.definition2 } : {}),
+          etymology: row.etymology || '',
+          origin: row.origin || 'Latin',
+          example: row.example_sentence || '',
+          ...(row.field_quote ? { fieldQuote: row.field_quote } : {}),
+          ...(row.field_quote_author ? { fieldQuoteAuthor: row.field_quote_author } : {}),
+          ...(row.field_alternatives ? { fieldAlternatives: row.field_alternatives } : {}),
+        };
+        byKey.set(key, merged.length);
+        merged.push(cloudWord);
+        addedFromCloud++;
+      } else if (existing) {
+        // Hydrate any missing cloud fields (e.g. fieldQuote added on deployed site)
+        merged[existingIdx] = {
+          ...existing,
+          ...(row.field_quote && !existing.fieldQuote ? { fieldQuote: row.field_quote } : {}),
+          ...(row.field_quote_author && !existing.fieldQuoteAuthor
+            ? { fieldQuoteAuthor: row.field_quote_author }
+            : {}),
+        };
+      }
+    }
+
+    if (addedFromCloud > 0) {
+      writeRawWordsToDisk(merged);
+    } else {
+      memoryWordsCache = [...merged];
+    }
+    return merged;
+  } catch {
+    return diskWords;
+  }
+}
+
 async function verifyCuratorAccess(): Promise<{
   authorized: boolean;
   mode: 'local-dev' | 'admin-email' | 'denied';
@@ -1088,7 +1562,7 @@ export async function GET() {
       );
     }
 
-    const words = readRawWordsFromDisk();
+    const words = await loadWordsMergedWithSupabase();
     const audited = auditWords(words);
     const staged = readStagedWords();
     const hasEnvGeminiKey = Boolean(resolveGeminiKey());
@@ -1127,7 +1601,68 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { action } = body;
-    const words = readRawWordsFromDisk();
+    const words = await loadWordsMergedWithSupabase();
+
+    if (action === 'fetch_wiktionary_quote') {
+      const { word, currentQuote } = body as {
+        word?: string;
+        currentQuote?: string;
+      };
+      const cleanTerm = (word || '').trim();
+      if (!cleanTerm) {
+        return NextResponse.json(
+          { error: 'Enter a word first to look up a verified Wiktionary quote.' },
+          { status: 400 }
+        );
+      }
+
+      const lower = cleanTerm.toLowerCase();
+      const quotesMap = await fetchVerifiedWiktionaryQuotesMap([cleanTerm], 5000);
+      const wikiQuotes = quotesMap.get(lower) || [];
+      const curated = CURATED_FIELD_QUOTES[lower];
+      const allVerified: VerifiedWiktionaryQuote[] = [...wikiQuotes];
+      if (
+        curated &&
+        !allVerified.some((q) => q.quote.toLowerCase() === curated.quote.toLowerCase())
+      ) {
+        allVerified.push({
+          quote: curated.quote,
+          author: curated.author,
+          type: 'curated',
+          score: 100,
+        });
+      }
+
+      if (allVerified.length === 0) {
+        return NextResponse.json({
+          found: false,
+          totalCandidates: 0,
+          fieldQuote: '',
+          fieldQuoteAuthor: '',
+          message: `No verified literary quote found on English Wiktionary for "${cleanTerm}". Leave Field Quote blank so the game uses your Example Sentence without a hallucinated citation.`,
+        });
+      }
+
+      // Cycle to the next verified quote if currentQuote matches one of them
+      const curNorm = (currentQuote || '').trim().toLowerCase();
+      const curIdx = curNorm
+        ? allVerified.findIndex((q) => q.quote.toLowerCase() === curNorm)
+        : -1;
+      const nextIdx = curIdx >= 0 ? (curIdx + 1) % allVerified.length : 0;
+      const picked = allVerified[nextIdx];
+
+      return NextResponse.json({
+        found: true,
+        totalCandidates: allVerified.length,
+        candidateIndex: nextIdx + 1,
+        fieldQuote: picked.quote,
+        fieldQuoteAuthor: picked.author,
+        message:
+          allVerified.length > 1
+            ? `✓ Loaded verified Wiktionary quote (${nextIdx + 1} of ${allVerified.length} — click again to cycle)`
+            : '✓ Loaded verified Wiktionary quote',
+      });
+    }
 
     if (action === 'enrich_word') {
       // Auto-populate fields (form, definition, definition2, etymology, example, origin, suggested difficulty & topic) for a given word
@@ -1164,7 +1699,12 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Step 2: Fetch verified dictionary senses (fast 1.5s lookup) to ground Gemini's definitions
+      // Step 2: Fetch verified dictionary senses AND real Wiktionary quotations in parallel
+      // (We never ask Gemini to invent literary quotes or author citations.)
+      const lowerTerm = cleanTerm.toLowerCase();
+      const curatedExistingQuote = CURATED_FIELD_QUOTES[lowerTerm];
+      const wiktionaryPromise = fetchVerifiedWiktionaryQuotesMap([cleanTerm], 3500);
+
       let dictionaryContext = '';
       let fallbackDictEntry: {
         pos: string;
@@ -1177,7 +1717,7 @@ export async function POST(req: NextRequest) {
       try {
         const dictRes = await fetchWithAbortTimeout(
           `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(
-            cleanTerm.toLowerCase()
+            lowerTerm
           )}`,
           {},
           1500,
@@ -1233,15 +1773,12 @@ Standards:
 1. "definition" & "definition2": Ground "definition" in the primary dictionary sense matching "form" ("To ..." for verbs, noun phrase for nouns, adjectival phrase for adjectives). "definition2" must be a genuinely distinct secondary or figurative sense. No semicolons.
 2. "etymology" (3–4 sentences, 250–450 chars): Sentence 1 gives source language, single-quoted root word(s), and literal meaning; Sentence 2 tells the vivid historical or cultural origin story; Sentence 3 explains how it evolved into its modern English sense.
 3. "example" (16–28 words): Specific literary sentence with strong context clues explicitly containing "${cleanTerm}" (or direct stem inflection) for game masking.
-4. "fieldQuote" & "fieldQuoteAuthor": Authentic or faithfully adapted literary/historical quote containing "${cleanTerm}", with author & work (e.g., "Nathaniel Hawthorne, The Old Manse (1846)").
 
 House style example ("desultory", adjective, Latin):
 definition: "Lacking a coherent plan, purpose, or sustained enthusiasm."
 definition2: "Jumping from one subject to another in a disconnected, half-hearted way."
 etymology: "From Latin 'desultorius', derived from 'desultor' (a Roman circus rider who leaped from one galloping horse to another), from 'desilire' ('de-' down + 'salire' to leap). In antiquity, it described switching mounts mid-race. By the late 16th century, English writers adopted it for minds or conversations jumping erratically between topics."
 example: "After midnight, their study session dissolved into desultory chatter about old movies and summer travel plans."
-fieldQuote: "For an hour we carried on a desultory conversation across the garden wall, drifting from the apple harvest to old books and distant friends."
-fieldQuoteAuthor: "Nathaniel Hawthorne, The Old Manse (1846)"
 
 Return ONLY a valid JSON object:
 {
@@ -1253,14 +1790,25 @@ Return ONLY a valid JSON object:
   "definition2": "...",
   "etymology": "...",
   "example": "...",
-  "fieldQuote": "...",
-  "fieldQuoteAuthor": "...",
   "origin": "Primary language of origin (e.g., Latin, Greek, French, Old English, Italian, German)"
 }`;
 
-          const rawJsonText = await generateGeminiJsonText(resolvedKey, prompt, 22000);
+          const [rawJsonText, wikiMap] = await Promise.all([
+            generateGeminiJsonText(resolvedKey, prompt, 22000),
+            wiktionaryPromise,
+          ]);
           const enriched = parseJsonSafe<Partial<Word>>(rawJsonText, {});
           if (enriched.definition && enriched.etymology) {
+            const verifiedWikiQuotes = wikiMap.get(lowerTerm) || [];
+            const topVerifiedQuote =
+              verifiedWikiQuotes[0] ||
+              (curatedExistingQuote
+                ? {
+                    quote: curatedExistingQuote.quote,
+                    author: curatedExistingQuote.author,
+                  }
+                : null);
+
             const enrichedWordObj: Word = {
               word: enriched.word || cleanTerm,
               seed: getWordDifficulty({ seed: enriched.seed || fallbackDifficulty }),
@@ -1270,8 +1818,8 @@ Return ONLY a valid JSON object:
               definition2: enriched.definition2 || '',
               etymology: enriched.etymology || '',
               example: enriched.example || '',
-              fieldQuote: enriched.fieldQuote || '',
-              fieldQuoteAuthor: enriched.fieldQuoteAuthor || '',
+              fieldQuote: topVerifiedQuote?.quote || '',
+              fieldQuoteAuthor: topVerifiedQuote?.author || '',
               origin: enriched.origin || 'Latin',
             };
             const morphemesMap = readMorphemesFromDisk();
@@ -1285,6 +1833,8 @@ Return ONLY a valid JSON object:
               enrichedMorphemes,
               similarWords: findSimilarLexiconWords(enrichedWordObj.word, words),
               source: 'gemini',
+              quoteVerified: Boolean(topVerifiedQuote),
+              quoteCandidatesCount: verifiedWikiQuotes.length,
             });
           }
           geminiWarning = 'Gemini returned an incomplete JSON response.';
@@ -1470,6 +2020,26 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
             topic: topic ? targetTopic : getWordTopic(w),
             id: `staged-${Date.now()}-${idx}`,
           }));
+      }
+
+      // Batch-fetch real verified Wiktionary quotes for all generated candidates (never hallucinate)
+      if (newCandidates.length > 0) {
+        const wikiQuotesMap = await fetchVerifiedWiktionaryQuotesMap(
+          newCandidates.map((c) => c.word),
+          4500
+        );
+        newCandidates = newCandidates.map((cand) => {
+          const lower = cand.word.toLowerCase();
+          const verified = wikiQuotesMap.get(lower)?.[0] || CURATED_FIELD_QUOTES[lower];
+          if (verified) {
+            return {
+              ...cand,
+              fieldQuote: verified.quote,
+              fieldQuoteAuthor: verified.author,
+            };
+          }
+          return cand;
+        });
       }
 
       const finalStaged = replaceExisting
@@ -1725,7 +2295,7 @@ Return ONLY a JSON array of objects, each with keys: "word", "form", "definition
       return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
 
-    const refreshed = auditWords(readRawWordsFromDisk());
+    const refreshed = auditWords(words);
     const refreshedStaged = readStagedWords();
 
     return NextResponse.json({

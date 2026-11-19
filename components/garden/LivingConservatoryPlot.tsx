@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { GardenEntry, GrowthStage } from '../../types';
 import { GROWTH_STAGE_META } from '../../constants';
 import { classifyOriginBranch } from '../../utils/etymology';
@@ -129,7 +129,9 @@ export const HerbariumSpecimenCard: React.FC<HerbariumSpecimenCardProps> = ({
 }) => {
   const plate = getBotanicalPlate(word);
   const originMeta = getOriginPlantSpecies(origin);
+  const [useFallbackThumb, setUseFallbackThumb] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   // Clear size progression as the specimen matures from Seed -> Established
   const sizeClass = dense
@@ -210,17 +212,26 @@ export const HerbariumSpecimenCard: React.FC<HerbariumSpecimenCardProps> = ({
         className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 w-5 sm:w-6 h-1.5 rounded-[2px] bg-[#EBDEBE]/90 border border-[#B49E72]/40"
       />
 
-      {/* Real vintage botanical plate */}
+      {/* Real vintage botanical plate (loads tiny self-hosted WebP first, falls back to Wikimedia) */}
       {plate && !imgFailed ? (
         <img
-          src={plate.thumbUrl}
+          src={useFallbackThumb ? plate.thumbUrl : plate.miniThumbUrl}
           alt=""
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          onError={() => setImgFailed(true)}
+          onLoad={() => setImgLoaded(true)}
+          onError={() => {
+            if (!useFallbackThumb) {
+              setUseFallbackThumb(true);
+            } else {
+              setImgFailed(true);
+            }
+          }}
           style={imgFilterStyle}
-          className="w-full h-full object-contain mix-blend-multiply select-none pointer-events-none transition-opacity duration-200 group-hover:opacity-95"
+          className={`w-full h-full object-contain mix-blend-multiply select-none pointer-events-none transition-opacity duration-200 group-hover:opacity-95 ${
+            imgLoaded ? '' : 'opacity-0'
+          }`}
         />
       ) : (
         <span
@@ -287,6 +298,9 @@ interface LivingConservatoryPlotProps {
   onSelectStatusCluster: (cluster: SelectedStatusCluster) => void;
 }
 
+const INITIAL_SPECIMEN_BATCH = 60;
+const SPECIMEN_BATCH_STEP = 60;
+
 export const LivingConservatoryPlot: React.FC<LivingConservatoryPlotProps> = ({
   activeEntries,
   onSelectStatusCluster,
@@ -294,6 +308,12 @@ export const LivingConservatoryPlot: React.FC<LivingConservatoryPlotProps> = ({
   const [selectedOrigin, setSelectedOrigin] = useState<OriginSpeciesKey | 'all'>('all');
   const [selectedStage, setSelectedStage] = useState<GrowthStage | 'all'>('all');
   const [sortBy, setSortBy] = useState<HerbariumSort>('stage');
+  const [renderLimit, setRenderLimit] = useState<number>(INITIAL_SPECIMEN_BATCH);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setRenderLimit(INITIAL_SPECIMEN_BATCH);
+  }, [selectedOrigin, selectedStage, sortBy]);
 
   const speciesCounts = useMemo(() => {
     const map = new Map<OriginSpeciesKey, number>();
@@ -365,6 +385,29 @@ export const LivingConservatoryPlot: React.FC<LivingConservatoryPlotProps> = ({
     () => visibleEntries.filter((e) => isWordThirsty(e)),
     [visibleEntries]
   );
+
+  const renderedEntries = useMemo(
+    () => visibleEntries.slice(0, renderLimit),
+    [visibleEntries, renderLimit]
+  );
+
+  const hasMoreSpecimens = renderedEntries.length < visibleEntries.length;
+
+  useEffect(() => {
+    if (!hasMoreSpecimens) return;
+    const node = sentinelRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setRenderLimit((prev) => Math.min(visibleEntries.length, prev + SPECIMEN_BATCH_STEP));
+        }
+      },
+      { rootMargin: '320px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMoreSpecimens, visibleEntries.length]);
 
   if (activeEntries.length === 0) {
     return (
@@ -536,33 +579,47 @@ export const LivingConservatoryPlot: React.FC<LivingConservatoryPlotProps> = ({
             </button>
           </div>
         ) : (
-          <div className="flex flex-wrap items-end justify-center gap-y-2.5 gap-x-0 px-2">
-            {visibleEntries.map((entry, idx) => {
-              const stage = entry.growthStage || 'sprout';
-              const thirsty = isWordThirsty(entry);
-              return (
+          <>
+            <div className="flex flex-wrap items-end justify-center gap-y-2.5 gap-x-0 px-2">
+              {renderedEntries.map((entry, idx) => {
+                const stage = entry.growthStage || 'sprout';
+                const thirsty = isWordThirsty(entry);
+                return (
+                  <button
+                    key={entry.word}
+                    type="button"
+                    onClick={() => openWaterModalForSpecimen(entry)}
+                    className="group relative -mx-1.5 sm:-mx-2 hover:z-20 focus:z-20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-xl transition-transform duration-200 hover:-translate-y-2 hover:scale-105"
+                    aria-label={`${GROWTH_STAGE_META[stage].label} specimen${
+                      thirsty ? ', needs watering' : ''
+                    }`}
+                  >
+                    <HerbariumSpecimenCard
+                      word={entry.word}
+                      origin={entry.origin}
+                      stage={stage}
+                      thirsty={thirsty}
+                      favorite={Boolean(entry.isFavorite)}
+                      tiltIndex={idx}
+                      dense={dense}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+
+            {hasMoreSpecimens && (
+              <div ref={sentinelRef} className="mt-5 flex items-center justify-center">
                 <button
-                  key={entry.word}
                   type="button"
-                  onClick={() => openWaterModalForSpecimen(entry)}
-                  className="group relative -mx-1.5 sm:-mx-2 hover:z-20 focus:z-20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-xl transition-transform duration-200 hover:-translate-y-2 hover:scale-105"
-                  aria-label={`${GROWTH_STAGE_META[stage].label} specimen${
-                    thirsty ? ', needs watering' : ''
-                  }`}
+                  onClick={() => setRenderLimit(visibleEntries.length)}
+                  className="px-4 py-1.5 rounded-full bg-white/90 hover:bg-[#EDF5EB] text-emerald-900 border border-[#C6DEC2] text-xs font-bold shadow-xs transition-colors"
                 >
-                  <HerbariumSpecimenCard
-                    word={entry.word}
-                    origin={entry.origin}
-                    stage={stage}
-                    thirsty={thirsty}
-                    favorite={Boolean(entry.isFavorite)}
-                    tiltIndex={idx}
-                    dense={dense}
-                  />
+                  Showing {renderedEntries.length} of {visibleEntries.length} specimens · Show all
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Compact Visual Stage Border Key */}

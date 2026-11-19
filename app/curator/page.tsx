@@ -104,6 +104,7 @@ export default function CuratorStudioPage() {
   const [selectedStagedId, setSelectedStagedId] = useState<string | null>(null);
   const [formMorphemes, setFormMorphemes] = useState<WordMorphemeProfile | null>(null);
   const [regenMorphemesLoading, setRegenMorphemesLoading] = useState(false);
+  const [fetchingWikiQuote, setFetchingWikiQuote] = useState(false);
 
   const [formState, setFormState] = useState<Word>({
     word: '',
@@ -216,8 +217,85 @@ export default function CuratorStudioPage() {
     return counts;
   }, [words]);
 
+  const wordMatchesSearchQuery = (w: AuditedWord, rawQuery: string): boolean => {
+    const q = rawQuery
+      .trim()
+      .toLowerCase()
+      .replace(/^["'“”‘’]+|["'“”‘’.,;!?]+$/g, '');
+    if (!q) return true;
+
+    const lowerWord = (w.word || '').toLowerCase();
+    // Stem match for inflected searches (e.g. "execrated" -> "execrable", "antinomies" -> "antinomy")
+    const queryStem =
+      q.length >= 5
+        ? q.replace(/(?:ies|ied|ing|ed|es|s|ly|ally|ic|ical|able|ible)$/i, '')
+        : q;
+    const wordStem =
+      lowerWord.length >= 5
+        ? lowerWord.replace(/(?:e|y|ies|ing|ed|es|s|ly|ic|able|ible)$/i, '')
+        : lowerWord;
+    const stemMatch =
+      queryStem.length >= 4 &&
+      wordStem.length >= 4 &&
+      (lowerWord.startsWith(queryStem) || q.startsWith(wordStem));
+
+    const curatedQuote = CURATED_FIELD_QUOTES[lowerWord];
+    const effectiveQuote = (w.fieldQuote || curatedQuote?.quote || '').toLowerCase();
+    const effectiveAuthor = (
+      w.fieldQuoteAuthor ||
+      curatedQuote?.author ||
+      ''
+    ).toLowerCase();
+
+    const morphMatch =
+      (w.morphemes?.prefixes || []).some(
+        (p) =>
+          (p.form || '').toLowerCase().includes(q) ||
+          (p.canonicalId || '').toLowerCase().includes(q) ||
+          (p.meaning || '').toLowerCase().includes(q)
+      ) ||
+      (w.morphemes?.roots || []).some(
+        (r) =>
+          (r.form || '').toLowerCase().includes(q) ||
+          (r.canonicalId || '').toLowerCase().includes(q) ||
+          (r.displayRoot || '').toLowerCase().includes(q) ||
+          (r.meaning || '').toLowerCase().includes(q) ||
+          (r.pieRoot || '').toLowerCase().includes(q)
+      ) ||
+      (w.morphemes?.suffixes || []).some(
+        (s) =>
+          (s.form || '').toLowerCase().includes(q) ||
+          (s.meaning || '').toLowerCase().includes(q)
+      );
+
+    return (
+      lowerWord.includes(q) ||
+      stemMatch ||
+      (w.definition || '').toLowerCase().includes(q) ||
+      (w.definition2 || '').toLowerCase().includes(q) ||
+      (w.etymology || '').toLowerCase().includes(q) ||
+      (w.example || '').toLowerCase().includes(q) ||
+      effectiveQuote.includes(q) ||
+      effectiveAuthor.includes(q) ||
+      (w.origin || '').toLowerCase().includes(q) ||
+      getWordTopic(w).toLowerCase().includes(q) ||
+      getDifficultyMeta(w).label.toLowerCase().includes(q) ||
+      Boolean(morphMatch)
+    );
+  };
+
+  const allSearchMatchesCount = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return words.length;
+    return words.filter((w) => wordMatchesSearchQuery(w, q)).length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [words, searchQuery]);
+
   const filteredWords = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery
+      .trim()
+      .toLowerCase()
+      .replace(/^["'“”‘’]+|["'“”‘’.,;!?]+$/g, '');
     const matched = words.filter((w) => {
       if (difficultyFilter !== 'all' && getWordDifficulty(w) !== difficultyFilter) return false;
       if (topicFilter !== 'all' && getWordTopic(w) !== topicFilter) return false;
@@ -230,40 +308,14 @@ export default function CuratorStudioPage() {
         return false;
       }
       if (q) {
-        const morphMatch =
-          w.morphemes?.prefixes.some(
-            (p) =>
-              p.form.toLowerCase().includes(q) ||
-              p.canonicalId.toLowerCase().includes(q) ||
-              p.meaning.toLowerCase().includes(q)
-          ) ||
-          w.morphemes?.roots.some(
-            (r) =>
-              r.form.toLowerCase().includes(q) ||
-              r.canonicalId.toLowerCase().includes(q) ||
-              r.displayRoot.toLowerCase().includes(q) ||
-              r.meaning.toLowerCase().includes(q) ||
-              (r.pieRoot && r.pieRoot.toLowerCase().includes(q))
-          );
-
-        return (
-          w.word.toLowerCase().includes(q) ||
-          w.definition.toLowerCase().includes(q) ||
-          (w.definition2 && w.definition2.toLowerCase().includes(q)) ||
-          w.etymology.toLowerCase().includes(q) ||
-          w.example.toLowerCase().includes(q) ||
-          (w.fieldQuote && w.fieldQuote.toLowerCase().includes(q)) ||
-          (w.fieldQuoteAuthor && w.fieldQuoteAuthor.toLowerCase().includes(q)) ||
-          w.origin.toLowerCase().includes(q) ||
-          Boolean(morphMatch)
-        );
+        return wordMatchesSearchQuery(w, q);
       }
       return true;
     });
 
     if (!q) return matched;
 
-    // Prioritize exact headword -> prefix headword -> substring headword -> rest
+    // Prioritize exact headword -> prefix headword -> substring/stem headword -> rest
     return [...matched].sort((a, b) => {
       const aw = a.word.toLowerCase();
       const bw = b.word.toLowerCase();
@@ -272,7 +324,13 @@ export default function CuratorStudioPage() {
       const diff = rank(aw) - rank(bw);
       return diff !== 0 ? diff : aw.localeCompare(bw);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [words, difficultyFilter, topicFilter, auditFilter, searchQuery]);
+
+  const hiddenByActiveFiltersCount = Math.max(
+    0,
+    allSearchMatchesCount - filteredWords.length
+  );
 
   const handleSelectLiveWord = (item: AuditedWord) => {
     setActiveTab('live');
@@ -390,7 +448,11 @@ export default function CuratorStudioPage() {
           type: 'success',
           text:
             data.source === 'gemini'
-              ? `✨ Populated definitions, etymology, morphemes, origin, and example for "${targetWord}" via Gemini AI!`
+              ? `✨ Populated "${targetWord}" via Gemini AI (${
+                  data.quoteVerified
+                    ? '✓ real verified Wiktionary quote attached'
+                    : 'no Wiktionary quote found — left Field Quote blank to avoid hallucination'
+                }).`
               : data.warning
               ? `✨ Populated fields for "${targetWord}" via ${data.source} (Gemini note: ${data.warning})`
               : `✨ Populated fields for "${targetWord}" (${data.source}).`,
@@ -407,6 +469,60 @@ export default function CuratorStudioPage() {
     } finally {
       clearTimeout(timeoutId);
       setEnriching(false);
+    }
+  };
+
+  // Fetch or cycle real verified literary quotes from English Wiktionary (never hallucinated)
+  const handleFetchWiktionaryQuote = async () => {
+    const targetWord = formState.word.trim();
+    if (!targetWord) {
+      setBanner({
+        type: 'error',
+        text: 'Enter a word first before fetching a verified Wiktionary quote.',
+      });
+      return;
+    }
+
+    setFetchingWikiQuote(true);
+    setBanner(null);
+    try {
+      const res = await fetch('/api/curator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'fetch_wiktionary_quote',
+          word: targetWord,
+          currentQuote: formState.fieldQuote || '',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to look up Wiktionary quote');
+
+      if (data.found) {
+        setFormState((prev) => ({
+          ...prev,
+          fieldQuote: data.fieldQuote || '',
+          fieldQuoteAuthor: data.fieldQuoteAuthor || '',
+        }));
+        setBanner({ type: 'success', text: data.message });
+      } else {
+        setFormState((prev) => ({
+          ...prev,
+          fieldQuote: '',
+          fieldQuoteAuthor: '',
+        }));
+        setBanner({
+          type: 'error',
+          text:
+            data.message ||
+            `No verified quote found on English Wiktionary for "${targetWord}". Cleared Field Quote so the game uses your Example Sentence.`,
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Wiktionary lookup failed';
+      setBanner({ type: 'error', text: msg });
+    } finally {
+      setFetchingWikiQuote(false);
     }
   };
 
@@ -993,9 +1109,28 @@ export default function CuratorStudioPage() {
                     <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 flex items-center gap-1">
                       <Layers className="w-3 h-3" /> Automated Audit Filters
                     </span>
-                    <span className="text-[10px] font-bold text-emerald-600">
-                      Showing {filteredWords.length} words
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {(difficultyFilter !== 'all' ||
+                        topicFilter !== 'all' ||
+                        auditFilter !== 'all' ||
+                        searchQuery.trim() !== '') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDifficultyFilter('all');
+                            setTopicFilter('all');
+                            setAuditFilter('all');
+                            setSearchQuery('');
+                          }}
+                          className="text-[10px] font-black text-amber-800 hover:text-amber-950 underline"
+                        >
+                          Reset all filters
+                        </button>
+                      )}
+                      <span className="text-[10px] font-bold text-emerald-600">
+                        Showing {filteredWords.length} of {words.length} words
+                      </span>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <button
@@ -1058,6 +1193,26 @@ export default function CuratorStudioPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto divide-y divide-emerald-50">
+                {searchQuery.trim() !== '' && hiddenByActiveFiltersCount > 0 && (
+                  <div className="p-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-2 text-[11px] font-bold text-amber-950">
+                    <span>
+                      🔍 +{hiddenByActiveFiltersCount} matching{' '}
+                      {hiddenByActiveFiltersCount === 1 ? 'word is' : 'words are'} hidden by active
+                      Tier / Topic / Audit filters
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDifficultyFilter('all');
+                        setTopicFilter('all');
+                        setAuditFilter('all');
+                      }}
+                      className="px-2.5 py-1 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black shrink-0 transition-colors"
+                    >
+                      Show all {allSearchMatchesCount} matches
+                    </button>
+                  </div>
+                )}
                 {loading ? (
                   <div className="p-8 text-center text-sm text-emerald-700 font-bold">
                     Loading curated lexicon...
@@ -1704,37 +1859,73 @@ export default function CuratorStudioPage() {
             </div>
 
             {/* Botanist's Field Notes Real-Life Quote & Attribution */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              <div className="sm:col-span-2">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-emerald-700 mb-1">
+            <div className="space-y-2 pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-emerald-700">
                   Botanist&apos;s Field Notes Quote (Optional — falls back to Example) ✍️
                 </label>
-                <textarea
-                  rows={2}
-                  value={formState.fieldQuote || ''}
-                  onChange={(e) =>
-                    setFormState((prev) => ({ ...prev, fieldQuote: e.target.value }))
-                  }
-                  placeholder="Real-life literary, historical, or naturalist quote containing the word..."
-                  className="w-full p-3 rounded-xl border border-emerald-200 focus:border-emerald-600 outline-none text-xs sm:text-sm italic text-emerald-950 leading-relaxed"
-                />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={fetchingWikiQuote || !formState.word.trim()}
+                    onClick={handleFetchWiktionaryQuote}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[10px] font-black disabled:opacity-50 transition-colors"
+                    title="Fetch or cycle real verified literary quotes from English Wiktionary (never AI-invented)"
+                  >
+                    <BookOpen
+                      className={`w-3 h-3 ${fetchingWikiQuote ? 'animate-spin' : ''}`}
+                    />
+                    <span>
+                      {fetchingWikiQuote
+                        ? 'Checking Wiktionary...'
+                        : '📚 Fetch Verified Wiktionary Quote'}
+                    </span>
+                  </button>
+                  {(formState.fieldQuote || formState.fieldQuoteAuthor) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormState((prev) => ({
+                          ...prev,
+                          fieldQuote: '',
+                          fieldQuoteAuthor: '',
+                        }))
+                      }
+                      className="px-2 py-1 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] font-bold transition-colors"
+                      title="Clear quote (game will use your Example Sentence)"
+                    >
+                      Clear Quote
+                    </button>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-emerald-700 mb-1">
-                  Quote Attribution / Source
-                </label>
-                <input
-                  type="text"
-                  value={formState.fieldQuoteAuthor || ''}
-                  onChange={(e) =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      fieldQuoteAuthor: e.target.value,
-                    }))
-                  }
-                  placeholder="e.g. Herman Melville, Moby-Dick (1851)"
-                  className="w-full p-3 rounded-xl border border-emerald-200 focus:border-emerald-600 outline-none text-xs font-bold text-emerald-950"
-                />
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <textarea
+                    rows={2}
+                    value={formState.fieldQuote || ''}
+                    onChange={(e) =>
+                      setFormState((prev) => ({ ...prev, fieldQuote: e.target.value }))
+                    }
+                    placeholder="Verified Wiktionary literary/historical quote (or leave blank to use Example Sentence)..."
+                    className="w-full p-3 rounded-xl border border-emerald-200 focus:border-emerald-600 outline-none text-xs sm:text-sm italic text-emerald-950 leading-relaxed"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={formState.fieldQuoteAuthor || ''}
+                    onChange={(e) =>
+                      setFormState((prev) => ({
+                        ...prev,
+                        fieldQuoteAuthor: e.target.value,
+                      }))
+                    }
+                    placeholder="Author, Work (Year)"
+                    className="w-full p-3 rounded-xl border border-emerald-200 focus:border-emerald-600 outline-none text-xs font-bold text-emerald-950"
+                  />
+                </div>
               </div>
             </div>
           </div>
